@@ -446,7 +446,43 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
       <div style="font-size:0.74rem;color:var(--acc);font-family:'JetBrains Mono',monospace;
         margin-top:6px;min-height:16px" id="photoSt"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" id="photoPrev"></div>
+
+      <!-- ANÁLISIS IA -->
+      <div id="aiPanel" style="display:none;margin-top:12px">
+        <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);
+          border-radius:12px;padding:12px 14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:0.72rem;color:#a78bfa;font-family:'JetBrains Mono',monospace;
+              font-weight:700;text-transform:uppercase;letter-spacing:0.08em">🤖 Análisis IA</span>
+            <button onclick="analyzePhotos()" id="btnAnalyze"
+              style="padding:5px 12px;background:linear-gradient(135deg,#7c3aed,#a78bfa);
+              color:#fff;border:none;border-radius:8px;font-size:0.75rem;font-weight:700;
+              cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:0.04em">
+              🔍 Analizar fotos
+            </button>
+          </div>
+          <div id="aiResult" style="font-size:0.78rem;color:var(--muted);line-height:1.6;
+            min-height:20px;font-style:italic">
+            Toca "Analizar fotos" para detectar daños, marca y modelo automáticamente.
+          </div>
+          <div id="aiApplyRow" style="display:none;margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+            <button onclick="applyAIResult()" style="padding:6px 12px;
+              background:rgba(16,185,129,0.15);color:var(--grn);
+              border:1px solid rgba(16,185,129,0.4);border-radius:8px;
+              font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'Rajdhani',sans-serif">
+              ✅ Aplicar al formulario
+            </button>
+            <button onclick="document.getElementById('aiPanel').style.display='none'" 
+              style="padding:6px 12px;background:transparent;color:var(--muted);
+              border:1px solid var(--bdr);border-radius:8px;
+              font-size:0.75rem;cursor:pointer;font-family:'Rajdhani',sans-serif">
+              Ignorar
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
+
     <div class="fg"><label class="lbl">Notas</label>
       <input class="inp" id="iNotes" type="text" placeholder="Ej: Trae cargador original…" autocomplete="off"></div>
     <button class="btn1" onclick="saveClient()">💾 Guardar Cliente</button>
@@ -1035,10 +1071,9 @@ function addPhotos(e){
   document.getElementById("photoSt").textContent="Procesando "+files.length+" foto(s)…";
   let done=0;
   files.forEach(f=>{
-    // Validar que sea imagen
     if(!f.type.startsWith("image/")){
       done++;
-      if(done===files.length){renderPrev();document.getElementById("photoSt").textContent=photos.length+" foto(s) lista(s)";}
+      if(done===files.length){ renderPrev(); showAIPanel(); }
       return;
     }
     compress(f,b64=>{
@@ -1048,11 +1083,145 @@ function addPhotos(e){
         renderPrev();
         const st=document.getElementById("photoSt");
         if(st) st.textContent=photos.length+" foto(s) lista(s)";
+        showAIPanel();
       }
     });
   });
-  // Reset input para permitir tomar otra foto con la misma cámara
   setTimeout(()=>{ try{e.target.value="";}catch(err){} },500);
+}
+
+function showAIPanel(){
+  const panel=document.getElementById("aiPanel");
+  if(panel && photos.length>0) panel.style.display="block";
+}
+
+// Resultado IA guardado para aplicar
+let _aiData = null;
+
+async function analyzePhotos(){
+  if(!photos.length){ toast("Primero agrega fotos","error"); return; }
+  const btn=document.getElementById("btnAnalyze");
+  const result=document.getElementById("aiResult");
+  const applyRow=document.getElementById("aiApplyRow");
+  btn.textContent="⏳ Analizando…";
+  btn.disabled=true;
+  result.style.color="var(--acc)";
+  result.textContent="Analizando imágenes con IA…";
+  applyRow.style.display="none";
+  _aiData=null;
+
+  try{
+    // Usar solo la primera foto para el análisis (evitar tokens excesivos)
+    const imgB64 = photos[0].split(",")[1];
+    const mediaType = photos[0].split(";")[0].split(":")[1] || "image/jpeg";
+
+    const response = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:1000,
+        system:`Eres un técnico experto en reparación de celulares. Analiza la foto del dispositivo y responde ÚNICAMENTE en JSON válido sin texto adicional, sin markdown, sin explicaciones. El formato exacto debe ser:
+{"marca":"","modelo":"","danios":[],"estado":"","notas":""}
+Donde:
+- marca: nombre de la marca (Samsung, iPhone, Motorola, Xiaomi, etc.) o "" si no se puede determinar
+- modelo: modelo específico (ej: Galaxy A54, iPhone 13) o "" si no se puede determinar  
+- danios: array de strings con daños visibles (ej: ["Pantalla rota","Cámara rayada","Marco doblado"])
+- estado: "bueno","regular","malo" según condición general
+- notas: descripción breve de observaciones importantes en español, máximo 2 oraciones`,
+        messages:[{
+          role:"user",
+          content:[
+            {type:"image",source:{type:"base64",media_type:mediaType,data:imgB64}},
+            {type:"text",text:"Analiza este dispositivo móvil. Identifica la marca, modelo, daños físicos visibles y estado general."}
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    if(data.error){ throw new Error(data.error.message); }
+
+    const text = data.content[0].text.trim();
+    // Limpiar posible markdown
+    const clean = text.replace(/```json|```/g,"").trim();
+    _aiData = JSON.parse(clean);
+
+    // Mostrar resultado formateado
+    let html = "";
+    if(_aiData.marca) html += `<b style="color:var(--acc)">📱 ${_aiData.marca}${_aiData.modelo?" "+_aiData.modelo:""}</b><br>`;
+    if(_aiData.danios && _aiData.danios.length){
+      html += `<b style="color:var(--warn)">⚠️ Daños:</b> ${_aiData.danios.join(", ")}<br>`;
+    }
+    if(_aiData.estado) html += `<b style="color:var(--muted)">Estado:</b> ${_aiData.estado}<br>`;
+    if(_aiData.notas) html += `<span style="color:var(--txt)">${_aiData.notas}</span>`;
+
+    result.style.color="var(--txt)";
+    result.innerHTML = html || "No se detectaron daños visibles.";
+    applyRow.style.display="flex";
+
+  }catch(err){
+    result.style.color="var(--red)";
+    result.textContent="Error al analizar: "+err.message;
+    console.error("AI analysis error:",err);
+  }finally{
+    btn.textContent="🔍 Re-analizar";
+    btn.disabled=false;
+  }
+}
+
+function applyAIResult(){
+  if(!_aiData) return;
+
+  // Aplicar marca
+  if(_aiData.marca){
+    const brandSel=document.getElementById("iBrand");
+    const opts=[...brandSel.options].map(o=>o.value.toLowerCase());
+    const match=opts.findIndex(o=>o.includes(_aiData.marca.toLowerCase())||_aiData.marca.toLowerCase().includes(o.replace(" / apple","")));
+    if(match>0){
+      brandSel.selectedIndex=match;
+      onBrandChange();
+      // Aplicar modelo si existe
+      if(_aiData.modelo){
+        setTimeout(()=>{
+          const modelSel=document.getElementById("iModel");
+          if(modelSel){
+            const mOpts=[...modelSel.options].map(o=>o.value.toLowerCase());
+            const mMatch=mOpts.findIndex(o=>o.includes(_aiData.modelo.toLowerCase())||_aiData.modelo.toLowerCase().includes(o));
+            if(mMatch>0){ modelSel.selectedIndex=mMatch; checkOtherModel(); }
+            else{
+              // No encontrado, poner en "Otro modelo"
+              const otroIdx=mOpts.findIndex(o=>o.includes("otro"));
+              if(otroIdx>0){ modelSel.selectedIndex=otroIdx; checkOtherModel();
+                const mo=document.getElementById("iModelOther"); if(mo) mo.value=_aiData.modelo; }
+            }
+          }
+        },200);
+      }
+    } else {
+      // Marca no en lista, usar "otro"
+      brandSel.value="otro"; onBrandChange();
+      const bo=document.getElementById("iBrandOther"); if(bo) bo.value=_aiData.marca;
+      if(_aiData.modelo){
+        const mo=document.getElementById("iModelOther"); if(mo) mo.value=_aiData.modelo;
+        const mw=document.getElementById("modelWrap"); if(mw) mw.style.display="block";
+      }
+    }
+  }
+
+  // Aplicar notas (concatenar con lo existente)
+  const notasEl=document.getElementById("iNotes");
+  const parts=[];
+  if(_aiData.danios && _aiData.danios.length) parts.push("Daños: "+_aiData.danios.join(", "));
+  if(_aiData.notas) parts.push(_aiData.notas);
+  if(parts.length){
+    const existing=(notasEl.value||"").trim();
+    notasEl.value=(existing?existing+". ":"")+parts.join(". ");
+  }
+
+  toast("✅ Datos aplicados al formulario","success");
+  document.getElementById("aiApplyRow").style.display="none";
+  document.getElementById("aiResult").innerHTML += '<br><span style="color:var(--grn)">✅ Aplicado</span>';
 }
 function renderPrev(){
   document.getElementById("photoPrev").innerHTML=photos.map((s,i)=>`
@@ -1131,6 +1300,10 @@ function resetAdd(){
   _r("otroX", el=>el.style.display="none");
   document.getElementById("photoPrev").innerHTML="";
   document.getElementById("photoSt").textContent="";
+  const ap=document.getElementById("aiPanel");if(ap)ap.style.display="none";
+  const ar=document.getElementById("aiResult");if(ar){ar.textContent="Toca 'Analizar fotos' para detectar daños, marca y modelo automáticamente.";ar.style.color="var(--muted)";}
+  const arp=document.getElementById("aiApplyRow");if(arp)arp.style.display="none";
+  _aiData=null;
   document.getElementById("refNum").textContent=genRef();
 }
 
@@ -1154,67 +1327,205 @@ function toggleWet(){wetOn=!wetOn;const b=document.getElementById("wetB");b.clas
 // ═══════════════════════════════════════
 //  MODELOS POR MARCA
 // ═══════════════════════════════════════
+// Actualizado junio 2025
 const MODELS = {
-  "Samsung": ["Galaxy A05","Galaxy A05s","Galaxy A15","Galaxy A15 5G","Galaxy A25","Galaxy A35","Galaxy A55",
-    "Galaxy A54","Galaxy A53","Galaxy A52","Galaxy A51","Galaxy A32","Galaxy A31","Galaxy A22","Galaxy A21s",
-    "Galaxy A12","Galaxy A13","Galaxy A14","Galaxy A04","Galaxy A04s","Galaxy A03","Galaxy A03s",
-    "Galaxy S24","Galaxy S24+","Galaxy S24 Ultra","Galaxy S23","Galaxy S23+","Galaxy S23 Ultra",
-    "Galaxy S22","Galaxy S21","Galaxy S20","Galaxy S10","Galaxy S10+","Galaxy S9","Galaxy S8",
-    "Galaxy Note 20","Galaxy Note 20 Ultra","Galaxy Note 10","Galaxy Note 9","Galaxy Note 8",
-    "Galaxy M14","Galaxy M15","Galaxy M34","Galaxy M54","Galaxy F14","Galaxy F15","Galaxy F54",
-    "Galaxy Z Fold 5","Galaxy Z Fold 4","Galaxy Z Flip 5","Galaxy Z Flip 4","Otro modelo"],
+  "Samsung": [
+    // Serie S 2025
+    "Galaxy S25","Galaxy S25+","Galaxy S25 Ultra","Galaxy S25 Edge",
+    // Serie S 2024
+    "Galaxy S24","Galaxy S24+","Galaxy S24 Ultra","Galaxy S24 FE",
+    // Serie S anteriores
+    "Galaxy S23","Galaxy S23+","Galaxy S23 Ultra","Galaxy S23 FE",
+    "Galaxy S22","Galaxy S22+","Galaxy S22 Ultra",
+    "Galaxy S21","Galaxy S21+","Galaxy S21 Ultra","Galaxy S21 FE",
+    "Galaxy S20","Galaxy S20+","Galaxy S20 Ultra","Galaxy S20 FE",
+    // Serie A 2024-2025
+    "Galaxy A56 5G","Galaxy A36 5G","Galaxy A26 5G","Galaxy A16 5G","Galaxy A06",
+    // Serie A 2023
+    "Galaxy A55","Galaxy A35","Galaxy A25","Galaxy A15","Galaxy A15 5G","Galaxy A05","Galaxy A05s",
+    // Serie A anteriores
+    "Galaxy A54","Galaxy A53","Galaxy A52","Galaxy A51","Galaxy A50",
+    "Galaxy A34","Galaxy A33","Galaxy A32","Galaxy A31","Galaxy A30",
+    "Galaxy A24","Galaxy A23","Galaxy A22","Galaxy A21s","Galaxy A20",
+    "Galaxy A14","Galaxy A13","Galaxy A12","Galaxy A11","Galaxy A10",
+    "Galaxy A04","Galaxy A04s","Galaxy A03","Galaxy A03s",
+    // Serie M y F
+    "Galaxy M55","Galaxy M35","Galaxy M15","Galaxy M14","Galaxy M13",
+    "Galaxy F55","Galaxy F35","Galaxy F15","Galaxy F14",
+    // Serie Note
+    "Galaxy Note 20","Galaxy Note 20 Ultra","Galaxy Note 10","Galaxy Note 10+","Galaxy Note 9","Galaxy Note 8",
+    // Serie Z Plegables
+    "Galaxy Z Fold 6","Galaxy Z Fold 5","Galaxy Z Fold 4",
+    "Galaxy Z Flip 6","Galaxy Z Flip 5","Galaxy Z Flip 4",
+    "Otro modelo"],
 
-  "iPhone / Apple": ["iPhone 16","iPhone 16 Plus","iPhone 16 Pro","iPhone 16 Pro Max",
+  "iPhone / Apple": [
+    // iPhone 17 (2025)
+    "iPhone 17","iPhone 17 Plus","iPhone 17 Pro","iPhone 17 Pro Max","iPhone Air",
+    // iPhone 16 (2024)
+    "iPhone 16","iPhone 16 Plus","iPhone 16 Pro","iPhone 16 Pro Max","iPhone 16e",
+    // iPhone 15 (2023)
     "iPhone 15","iPhone 15 Plus","iPhone 15 Pro","iPhone 15 Pro Max",
+    // iPhone 14 (2022)
     "iPhone 14","iPhone 14 Plus","iPhone 14 Pro","iPhone 14 Pro Max",
+    // iPhone 13 (2021)
     "iPhone 13","iPhone 13 Mini","iPhone 13 Pro","iPhone 13 Pro Max",
+    // iPhone 12 (2020)
     "iPhone 12","iPhone 12 Mini","iPhone 12 Pro","iPhone 12 Pro Max",
+    // iPhone 11 (2019)
     "iPhone 11","iPhone 11 Pro","iPhone 11 Pro Max",
+    // Anteriores
     "iPhone XS","iPhone XS Max","iPhone XR","iPhone X",
-    "iPhone SE (3ra gen)","iPhone SE (2da gen)","iPhone 8","iPhone 8 Plus",
-    "iPhone 7","iPhone 7 Plus","iPhone 6s","iPhone 6","Otro modelo"],
+    "iPhone SE (3ra gen)","iPhone SE (2da gen)","iPhone SE (1ra gen)",
+    "iPhone 8","iPhone 8 Plus","iPhone 7","iPhone 7 Plus",
+    "iPhone 6s","iPhone 6s Plus","iPhone 6","iPhone 6 Plus",
+    "Otro modelo"],
 
-  "Motorola": ["Moto G84","Moto G73","Moto G72","Moto G62","Moto G54","Moto G53","Moto G52",
+  "Motorola": [
+    // Edge 2025
+    "Edge 60","Edge 60 Pro","Edge 60 Ultra","Edge 60 Fusion",
+    // Edge 2024
+    "Edge 50","Edge 50 Pro","Edge 50 Ultra","Edge 50 Neo","Edge 50 Fusion",
+    // Edge anteriores
+    "Edge 40","Edge 40 Pro","Edge 40 Neo","Edge 30","Edge 30 Pro","Edge 30 Fusion",
+    // Razr plegables
+    "Razr 50","Razr 50 Ultra","Razr 40","Razr 40 Ultra",
+    // Moto G 2024-2025
+    "Moto G85","Moto G75","Moto G65","Moto G55","Moto G45","Moto G35","Moto G25","Moto G15","Moto G05",
+    // Moto G anteriores
+    "Moto G84","Moto G73","Moto G72","Moto G62","Moto G54","Moto G53","Moto G52",
     "Moto G32","Moto G31","Moto G22","Moto G14","Moto G13","Moto G04","Moto G04s",
-    "Moto G200","Moto G100","Moto G Stylus 2024","Moto G Power 2024",
-    "Edge 50 Pro","Edge 50 Ultra","Edge 40","Edge 40 Pro","Edge 40 Neo",
-    "Edge 30","Edge 30 Pro","Edge 30 Fusion","Razr 40","Razr 40 Ultra","Otro modelo"],
+    // Moto G Power y Stylus
+    "Moto G Power 2024","Moto G Stylus 2024","Moto G Power 5G",
+    "Otro modelo"],
 
-  "Xiaomi": ["Redmi 9","Redmi 9A","Redmi 9C","Redmi 10","Redmi 10A","Redmi 10C",
-    "Redmi 12","Redmi 12C","Redmi 13","Redmi 13C","Redmi 13R","Redmi 14C",
-    "Redmi Note 10","Redmi Note 10 Pro","Redmi Note 11","Redmi Note 11 Pro",
-    "Redmi Note 12","Redmi Note 12 Pro","Redmi Note 13","Redmi Note 13 Pro",
-    "Xiaomi 13","Xiaomi 13 Pro","Xiaomi 13T","Xiaomi 14","Xiaomi 14 Ultra",
-    "POCO X5","POCO X5 Pro","POCO X6","POCO X6 Pro","POCO M5","POCO M6","POCO F5","Otro modelo"],
+  "Xiaomi": [
+    // Xiaomi 15 (2025)
+    "Xiaomi 15","Xiaomi 15 Pro","Xiaomi 15 Ultra","Xiaomi 15T","Xiaomi 15T Pro",
+    // Xiaomi 14 (2024)
+    "Xiaomi 14","Xiaomi 14 Pro","Xiaomi 14 Ultra","Xiaomi 14T","Xiaomi 14T Pro","Xiaomi 14C",
+    // Xiaomi 13
+    "Xiaomi 13","Xiaomi 13 Pro","Xiaomi 13T","Xiaomi 13T Pro","Xiaomi 13C","Xiaomi 13 Lite",
+    // Redmi Note 2025
+    "Redmi Note 15","Redmi Note 15 Pro","Redmi Note 15 Pro+","Redmi Note 15 5G",
+    // Redmi Note 2024
+    "Redmi Note 14","Redmi Note 14 Pro","Redmi Note 14 Pro+","Redmi Note 14 5G",
+    // Redmi Note anteriores
+    "Redmi Note 13","Redmi Note 13 Pro","Redmi Note 13 Pro+","Redmi Note 13 5G",
+    "Redmi Note 12","Redmi Note 12 Pro","Redmi Note 12S","Redmi Note 12 5G",
+    "Redmi Note 11","Redmi Note 11 Pro","Redmi Note 11S","Redmi Note 11 5G",
+    "Redmi Note 10","Redmi Note 10 Pro","Redmi Note 10S","Redmi Note 10 5G",
+    // Redmi 2024-2025
+    "Redmi 14C","Redmi 14R","Redmi 13","Redmi 13C","Redmi 13R",
+    "Redmi 12","Redmi 12C","Redmi 12 5G",
+    "Redmi 10","Redmi 10A","Redmi 10C","Redmi 9","Redmi 9A","Redmi 9C",
+    // POCO 2024-2025
+    "POCO X7","POCO X7 Pro","POCO X6","POCO X6 Pro","POCO X5","POCO X5 Pro",
+    "POCO M7","POCO M7 Pro","POCO M6","POCO M6 Pro","POCO M5","POCO M5s",
+    "POCO F7","POCO F7 Pro","POCO F6","POCO F6 Pro","POCO F5","POCO F5 Pro",
+    "POCO C75","POCO C65","POCO C55",
+    "Otro modelo"],
 
-  "Huawei": ["Y6","Y7","Y8","Y9","Y6p","Y7p","Y8p","Y9a","Y9s",
-    "P30","P30 Pro","P30 Lite","P40","P40 Pro","P40 Lite","P50","P50 Pro",
-    "Nova 5T","Nova 7","Nova 8","Nova 9","Nova 10","Nova 11","Nova 12",
-    "Mate 30","Mate 40","Mate 50","Honor X8","Honor X9","Otro modelo"],
+  "Huawei": [
+    // Nova 2024-2025
+    "Nova 13","Nova 13 Pro","Nova 13i","Nova 12","Nova 12 Pro","Nova 12 Ultra",
+    "Nova 11","Nova 11 Pro","Nova 11i","Nova 11 SE",
+    "Nova 10","Nova 10 Pro","Nova 9","Nova 9 SE","Nova 8","Nova 8i",
+    // P series
+    "P60","P60 Pro","P60 Art","P50","P50 Pro","P50 Pocket",
+    "P40","P40 Pro","P40 Pro+","P40 Lite",
+    "P30","P30 Pro","P30 Lite",
+    // Mate
+    "Mate 60","Mate 60 Pro","Mate 50","Mate 50 Pro","Mate 40","Mate 40 Pro",
+    // Y series
+    "Y9a","Y9s","Y8p","Y8s","Y7p","Y7a","Y6p","Y6s",
+    // Honor
+    "Honor X9b","Honor X8b","Honor X7b","Honor X6b","Honor 90","Honor 200",
+    "Otro modelo"],
 
-  "LG": ["K40","K40s","K50","K50s","K51","K52","K61","K71","K92",
-    "Q60","Q70","V40","V50","V60","G7","G8","Stylo 5","Stylo 6","Otro modelo"],
+  "LG": [
+    "K92 5G","K71","K61","K52","K51","K50s","K50","K42","K41S","K40s","K40",
+    "Q92","Q70","Q60","Q51","Q31",
+    "V60 ThinQ","V50 ThinQ","V40 ThinQ",
+    "G8 ThinQ","G8X ThinQ","G7 ThinQ","G6",
+    "Velvet","Wing","Stylo 6","Stylo 5",
+    "Otro modelo"],
 
-  "Nokia": ["C01 Plus","C02","C12","C21","C21 Plus","C31","C32","C33",
-    "G10","G11","G20","G21","G22","G42","X10","X20","X30","Otro modelo"],
+  "Nokia": [
+    // 2024-2025
+    "Nokia G42","Nokia G22","Nokia C32","Nokia C22","Nokia C12","Nokia C02","Nokia 105 4G",
+    // Anteriores
+    "Nokia X30","Nokia X20","Nokia X10",
+    "Nokia G21","Nokia G20","Nokia G11","Nokia G10",
+    "Nokia C31","Nokia C21 Plus","Nokia C21","Nokia C20","Nokia C01 Plus",
+    "Nokia 5.4","Nokia 3.4","Nokia 2.4","Nokia 1.4",
+    "Otro modelo"],
 
-  "Sony": ["Xperia 1 V","Xperia 5 V","Xperia 10 V","Xperia 1 IV","Xperia 5 IV",
-    "Xperia 10 IV","Xperia 1 III","Xperia 5 III","Xperia 10 III","Otro modelo"],
+  "Sony": [
+    // Xperia 1 series
+    "Xperia 1 VI","Xperia 1 V","Xperia 1 IV","Xperia 1 III",
+    // Xperia 5 series
+    "Xperia 5 V","Xperia 5 IV","Xperia 5 III",
+    // Xperia 10 series
+    "Xperia 10 VI","Xperia 10 V","Xperia 10 IV","Xperia 10 III",
+    "Otro modelo"],
 
-  "OPPO": ["A15","A16","A17","A18","A38","A54","A57","A58","A74","A76","A78","A96",
-    "Reno 8","Reno 9","Reno 10","Reno 11","Find X5","Find X6","Otro modelo"],
+  "OPPO": [
+    // Find series
+    "Find X8","Find X8 Pro","Find X7","Find X7 Ultra","Find X6","Find X6 Pro",
+    // Reno series 2024-2025
+    "Reno 13","Reno 13 Pro","Reno 13 F","Reno 12","Reno 12 Pro","Reno 12 F",
+    "Reno 11","Reno 11 Pro","Reno 11 F","Reno 10","Reno 10 Pro","Reno 10 Pro+",
+    // A series
+    "A3 Pro","A3","A2 Pro","A2","A98","A79","A78","A77","A76","A74","A57","A38","A18","A17","A16",
+    "Otro modelo"],
 
-  "Vivo": ["Y01","Y02","Y11","Y15","Y16","Y17","Y20","Y21","Y22","Y33","Y35","Y36",
-    "Y52","Y55","Y72","Y76","V21","V23","V25","V27","V29","T1","T2","Otro modelo"],
+  "Vivo": [
+    // V series 2024-2025
+    "V40","V40 Pro","V40e","V40 Lite","V30","V30 Pro","V30e","V30 Lite",
+    "V29","V29 Pro","V29e","V27","V27 Pro","V27e","V25","V25 Pro","V25e",
+    // Y series
+    "Y200","Y200 Pro","Y100","Y100A","Y78","Y77","Y76","Y75","Y72","Y55","Y52","Y35","Y33","Y22","Y21","Y16","Y15","Y02",
+    // T series
+    "T3 Pro","T3","T2 Pro","T2","T1 Pro","T1",
+    "Otro modelo"],
 
-  "OnePlus": ["Nord CE 3","Nord CE 3 Lite","Nord 3","Nord N30","10 Pro","11","11R","12","12R","Otro modelo"],
+  "OnePlus": [
+    // 2024-2025
+    "OnePlus 13","OnePlus 13R","OnePlus 13s",
+    "OnePlus 12","OnePlus 12R",
+    "OnePlus 11","OnePlus 11R",
+    "OnePlus 10 Pro","OnePlus 10T",
+    // Nord series
+    "Nord 4","Nord CE 4","Nord CE 4 Lite","Nord CE 3","Nord CE 3 Lite",
+    "Nord 3","Nord N30","Nord N20",
+    "Otro modelo"],
 
-  "Realme": ["C11","C15","C20","C21","C25","C30","C33","C35","C51","C53","C55","C67",
-    "9","9 Pro","10","10 Pro","11","11 Pro","12","12 Pro","Narzo 50","Narzo 60","Otro modelo"],
+  "Realme": [
+    // GT series 2024-2025
+    "Realme GT 6","Realme GT 6T","Realme GT 5","Realme GT 5 Pro",
+    "Realme GT Neo 6","Realme GT Neo 5",
+    // Narzo series
+    "Narzo 70 Pro","Narzo 70","Narzo 70x","Narzo 60 Pro","Narzo 60","Narzo 60x","Narzo 50","Narzo 50 Pro",
+    // C series 2024
+    "C75","C67","C65","C63","C61","C55","C53","C51","C35","C33","C30","C25","C21","C20","C15","C11",
+    // Numbered series
+    "Realme 13 Pro+","Realme 13 Pro","Realme 13","Realme 13x",
+    "Realme 12 Pro+","Realme 12 Pro","Realme 12","Realme 12x",
+    "Realme 11 Pro+","Realme 11 Pro","Realme 11","Realme 11x",
+    "Otro modelo"],
 
-  "ZTE": ["Blade A3","Blade A5","Blade A7","Blade A31","Blade A51","Blade A71","Blade V40","Otro modelo"],
+  "ZTE": [
+    "Blade V50 Design","Blade V50 Pro","Blade V40s","Blade V40 Design","Blade V30",
+    "Blade A72s","Blade A72","Blade A71","Blade A52","Blade A51","Blade A31",
+    "Nubia Z60 Ultra","Nubia Z50S Pro","Nubia Z50 Ultra",
+    "Otro modelo"],
 
-  "Alcatel": ["1B","1C","1E","1L","1S","3L","1V","3V","TCL 20","TCL 30","Otro modelo"],
+  "Alcatel": [
+    "TCL 50 Pro 5G","TCL 50 5G","TCL 40 SE","TCL 30+","TCL 30 5G","TCL 20 Pro 5G",
+    "Alcatel 3L","Alcatel 1SE","Alcatel 1S","Alcatel 1L Pro",
+    "Alcatel 1B","Alcatel 1C","Alcatel 3X",
+    "Otro modelo"],
 };
 
 function onBrandChange(){
