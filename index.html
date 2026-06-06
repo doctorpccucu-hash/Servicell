@@ -376,7 +376,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 
     <!-- MARCA -->
     <div class="fg"><label class="lbl">Marca del equipo</label>
-      <select class="rsel" id="iBrand" onchange="checkOtherBrand()">
+      <select class="rsel" id="iBrand" onchange="onBrandChange()">
         <option value="">— Seleccionar marca —</option>
         <option>Samsung</option><option>iPhone / Apple</option><option>Motorola</option>
         <option>Xiaomi</option><option>Huawei</option><option>LG</option>
@@ -385,6 +385,15 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         <option>ZTE</option><option>Alcatel</option><option>otro</option>
       </select>
       <input class="inp" id="iBrandOther" type="text" placeholder="Escribe la marca…"
+        style="display:none;margin-top:8px" autocomplete="off">
+    </div>
+    <!-- MODELO -->
+    <div class="fg" id="modelWrap" style="display:none">
+      <label class="lbl">Modelo del equipo</label>
+      <select class="rsel" id="iModel" onchange="checkOtherModel()">
+        <option value="">— Seleccionar modelo —</option>
+      </select>
+      <input class="inp" id="iModelOther" type="text" placeholder="Escribe el modelo…"
         style="display:none;margin-top:8px" autocomplete="off">
     </div>
 
@@ -408,6 +417,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         <div class="chip" data-t="Tapadera"     onclick="toggleType(this)">🔩<br>Tapadera</div>
         <div class="chip" data-t="Bypass"       onclick="toggleType(this)">🔓<br>Bypass</div>
         <div class="chip" data-t="Formato"      onclick="toggleType(this)">💾<br>Formato</div>
+        <div class="chip" data-t="Bandeo/Unlock" onclick="toggleType(this)">📶<br>Bandeo</div>
         <div class="chip" data-t="Otro"         onclick="toggleType(this)">🔧<br>Otro</div>
       </div>
       <!-- Wet extra -->
@@ -423,16 +433,16 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
     </div>
 
     <div class="fg"><label class="lbl">Fotos del equipo</label>
+      <!-- Galería: múltiples fotos -->
       <label class="pbtn" style="width:100%;margin-bottom:8px">
-        <input type="file" accept="image/*" multiple onchange="addPhotos(event)">📁 Galería / Archivos</label>
-      <div style="display:flex;gap:8px">
-        <label class="pbtn" style="flex:1;flex-direction:column;gap:3px;font-size:0.74rem">
-          <input type="file" accept="image/*" capture="environment" onchange="addPhotos(event)">
-          <span style="font-size:20px">📸</span>Cámara</label>
-        <label class="pbtn" style="flex:1;flex-direction:column;gap:3px;font-size:0.74rem">
-          <input type="file" accept="image/*" capture="user" onchange="addPhotos(event)">
-          <span style="font-size:20px">🤳</span>Frontal</label>
-      </div>
+        <input type="file" accept="image/*" multiple onchange="addPhotos(event)">
+        📁 Galería / Archivos
+      </label>
+      <!-- Cámara trasera: un archivo a la vez con capture -->
+      <label class="pbtn" style="width:100%">
+        <input type="file" accept="image/*" capture="environment" onchange="addPhotos(event)">
+        📸 Tomar foto con cámara
+      </label>
       <div style="font-size:0.74rem;color:var(--acc);font-family:'JetBrains Mono',monospace;
         margin-top:6px;min-height:16px" id="photoSt"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" id="photoPrev"></div>
@@ -462,6 +472,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         <div class="chip" data-t="Tapadera"     onclick="toggleEditType(this)">🔩<br>Tapadera</div>
         <div class="chip" data-t="Bypass"       onclick="toggleEditType(this)">🔓<br>Bypass</div>
         <div class="chip" data-t="Formato"      onclick="toggleEditType(this)">💾<br>Formato</div>
+        <div class="chip" data-t="Bandeo/Unlock" onclick="toggleEditType(this)">📶<br>Bandeo</div>
         <div class="chip" data-t="Otro"         onclick="toggleEditType(this)">🔧<br>Otro</div>
       </div>
       <div id="editOtroX" style="display:none;margin-top:8px">
@@ -784,21 +795,27 @@ function renderCards(all){
     if(tab==="delivered")return  c.delivered;
     return true;
   });
-  const list=q?base.filter(c=>
+
+  // Si hay búsqueda activa, buscar en TODAS las categorías
+  const searchIn = q ? all : base;
+  const list = q ? searchIn.filter(c=>
     (c.name||"").toLowerCase().includes(q)||
     (c.phone||"").toLowerCase().includes(q)||
     (c.ref||"").toLowerCase().includes(q)||
     (c.brand||"").toLowerCase().includes(q)||
     (Array.isArray(c.repairTypes)?c.repairTypes.join(" "):c.repairType||"").toLowerCase().includes(q)||
     (c.notes||"").toLowerCase().includes(q)
-  ):base;
+  ) : base;
 
   document.getElementById("bPend").textContent=all.filter(c=>!c.delivered&&!c.repaired).length;
   document.getElementById("bRep").textContent=all.filter(c=>c.repaired&&!c.delivered).length;
   document.getElementById("bDel").textContent=all.filter(c=>c.delivered).length;
   const sc=document.getElementById("sCnt");
-  sc.textContent=q?`${list.length} de ${base.length} resultado${list.length!==1?"s":""}`:
-    base.length>0?`${base.length} registro${base.length!==1?"s":""}` :"";
+  if(q){
+    sc.textContent=`${list.length} resultado${list.length!==1?"s":""} en todas las categorías`;
+  } else {
+    sc.textContent=base.length>0?`${base.length} registro${base.length!==1?"s":""}` :"";
+  }
 
   const mc=document.getElementById("mainContent");
   if(!list.length){
@@ -844,7 +861,7 @@ function renderCards(all){
         <div class="av">${ini(c.name)}</div>
         <div class="ci">
           <div class="cn">${esc(c.name)}</div>
-          <div class="cp">${esc(c.phone)}${brand?` · ${esc(brand)}`:""}</div>
+          <div class="cp">${esc(c.phone)}${brand?` · ${esc(brand)}`:""} ${c.model?`<span style="color:var(--acc);font-size:0.68rem">${esc(c.model)}</span>`:""}</div>
         </div>
         <div class="cas">
           ${!c.delivered?`<button class="ab ed" onclick="openEdit('${c.id}')" title="Editar">✏️</button>`:""}
@@ -861,7 +878,7 @@ function renderCards(all){
       ${repCheck}
       ${evs}
       <div class="cdate">📅 ${c.dateIn}${c.dateOut?" · ✅ "+c.dateOut:""}</div>
-      <div class="cby">👤 ${esc(c.createdBy||"")}</div>
+      <div class="cby">👤 ${esc(c.createdBy||"")}${q?" · "+( c.delivered?"✅ Entregado":c.repaired?"🔧 Reparado":"⏳ Pendiente"):""}</div>
     </div>`;
   }).join("");
 }
@@ -877,6 +894,9 @@ async function saveClient(){
   const brandSel=document.getElementById("iBrand").value;
   const brandOther=(document.getElementById("iBrandOther").value||"").trim();
   const brand=brandSel==="otro"?brandOther:brandSel;
+  const modelSel=(document.getElementById("iModel")?.value||"").trim();
+  const modelOther=(document.getElementById("iModelOther")?.value||"").trim();
+  const model=modelSel==="Otro modelo"?modelOther:modelSel;
   const otroTxt=(document.getElementById("iOtro").value||"").trim();
 
   if(!name){toast("Falta el nombre","error");return;}
@@ -893,7 +913,7 @@ async function saveClient(){
   try{
     const ref=genRef();
     await db.collection("clients").add({
-      ref,name,phone,notes,brand,
+      ref,name,phone,notes,brand,model,
       price:price?parseFloat(price).toFixed(2):"",
       repairTypes:finalTypes,
       wetScreen:wetOn,repaired:false,
@@ -1010,11 +1030,29 @@ async function createUser(){
 //  FOTOS
 // ═══════════════════════════════════════
 function addPhotos(e){
-  const files=[...(e.target.files||[])];if(!files.length)return;
-  document.getElementById("photoSt").textContent="Procesando…";
+  const files=[...(e.target.files||[])];
+  if(!files.length)return;
+  document.getElementById("photoSt").textContent="Procesando "+files.length+" foto(s)…";
   let done=0;
-  files.forEach(f=>{compress(f,b64=>{if(b64)photos.push(b64);if(++done===files.length){renderPrev();document.getElementById("photoSt").textContent=photos.length+" foto(s) lista(s)";}});});
-  e.target.value="";
+  files.forEach(f=>{
+    // Validar que sea imagen
+    if(!f.type.startsWith("image/")){
+      done++;
+      if(done===files.length){renderPrev();document.getElementById("photoSt").textContent=photos.length+" foto(s) lista(s)";}
+      return;
+    }
+    compress(f,b64=>{
+      if(b64) photos.push(b64);
+      done++;
+      if(done===files.length){
+        renderPrev();
+        const st=document.getElementById("photoSt");
+        if(st) st.textContent=photos.length+" foto(s) lista(s)";
+      }
+    });
+  });
+  // Reset input para permitir tomar otra foto con la misma cámara
+  setTimeout(()=>{ try{e.target.value="";}catch(err){} },500);
 }
 function renderPrev(){
   document.getElementById("photoPrev").innerHTML=photos.map((s,i)=>`
@@ -1081,6 +1119,10 @@ function closeM(id){document.getElementById(id).classList.remove("on");}
 function resetAdd(){
   ["iName","iPhone","iPrice","iNotes","iOtro","iBrandOther"].forEach(i=>{const e=document.getElementById(i);if(e)e.value="";});
   document.getElementById("iBrand").value="";
+  const mw=document.getElementById("modelWrap");if(mw)mw.style.display="none";
+  const ms=document.getElementById("iModel");if(ms)ms.innerHTML="";
+  const mo=document.getElementById("iModelOther");if(mo){mo.value="";mo.style.display="none";}
+  const bo=document.getElementById("iBrandOther");if(bo){bo.value="";bo.style.display="none";}
   selTypes=new Set();wetOn=false;photos=[];
   document.querySelectorAll("#mAdd .chip").forEach(c=>c.classList.remove("on"));
   const _r=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
@@ -1109,10 +1151,98 @@ function toggleType(el){
 }
 function toggleWet(){wetOn=!wetOn;const b=document.getElementById("wetB");b.className="cbox"+(wetOn?" on":"");b.textContent=wetOn?"✓":"";}
 
-// Marca otro
-function checkOtherBrand(){
-  const v=document.getElementById("iBrand").value;
-  document.getElementById("iBrandOther").style.display=v==="otro"?"block":"none";
+// ═══════════════════════════════════════
+//  MODELOS POR MARCA
+// ═══════════════════════════════════════
+const MODELS = {
+  "Samsung": ["Galaxy A05","Galaxy A05s","Galaxy A15","Galaxy A15 5G","Galaxy A25","Galaxy A35","Galaxy A55",
+    "Galaxy A54","Galaxy A53","Galaxy A52","Galaxy A51","Galaxy A32","Galaxy A31","Galaxy A22","Galaxy A21s",
+    "Galaxy A12","Galaxy A13","Galaxy A14","Galaxy A04","Galaxy A04s","Galaxy A03","Galaxy A03s",
+    "Galaxy S24","Galaxy S24+","Galaxy S24 Ultra","Galaxy S23","Galaxy S23+","Galaxy S23 Ultra",
+    "Galaxy S22","Galaxy S21","Galaxy S20","Galaxy S10","Galaxy S10+","Galaxy S9","Galaxy S8",
+    "Galaxy Note 20","Galaxy Note 20 Ultra","Galaxy Note 10","Galaxy Note 9","Galaxy Note 8",
+    "Galaxy M14","Galaxy M15","Galaxy M34","Galaxy M54","Galaxy F14","Galaxy F15","Galaxy F54",
+    "Galaxy Z Fold 5","Galaxy Z Fold 4","Galaxy Z Flip 5","Galaxy Z Flip 4","Otro modelo"],
+
+  "iPhone / Apple": ["iPhone 16","iPhone 16 Plus","iPhone 16 Pro","iPhone 16 Pro Max",
+    "iPhone 15","iPhone 15 Plus","iPhone 15 Pro","iPhone 15 Pro Max",
+    "iPhone 14","iPhone 14 Plus","iPhone 14 Pro","iPhone 14 Pro Max",
+    "iPhone 13","iPhone 13 Mini","iPhone 13 Pro","iPhone 13 Pro Max",
+    "iPhone 12","iPhone 12 Mini","iPhone 12 Pro","iPhone 12 Pro Max",
+    "iPhone 11","iPhone 11 Pro","iPhone 11 Pro Max",
+    "iPhone XS","iPhone XS Max","iPhone XR","iPhone X",
+    "iPhone SE (3ra gen)","iPhone SE (2da gen)","iPhone 8","iPhone 8 Plus",
+    "iPhone 7","iPhone 7 Plus","iPhone 6s","iPhone 6","Otro modelo"],
+
+  "Motorola": ["Moto G84","Moto G73","Moto G72","Moto G62","Moto G54","Moto G53","Moto G52",
+    "Moto G32","Moto G31","Moto G22","Moto G14","Moto G13","Moto G04","Moto G04s",
+    "Moto G200","Moto G100","Moto G Stylus 2024","Moto G Power 2024",
+    "Edge 50 Pro","Edge 50 Ultra","Edge 40","Edge 40 Pro","Edge 40 Neo",
+    "Edge 30","Edge 30 Pro","Edge 30 Fusion","Razr 40","Razr 40 Ultra","Otro modelo"],
+
+  "Xiaomi": ["Redmi 9","Redmi 9A","Redmi 9C","Redmi 10","Redmi 10A","Redmi 10C",
+    "Redmi 12","Redmi 12C","Redmi 13","Redmi 13C","Redmi 13R","Redmi 14C",
+    "Redmi Note 10","Redmi Note 10 Pro","Redmi Note 11","Redmi Note 11 Pro",
+    "Redmi Note 12","Redmi Note 12 Pro","Redmi Note 13","Redmi Note 13 Pro",
+    "Xiaomi 13","Xiaomi 13 Pro","Xiaomi 13T","Xiaomi 14","Xiaomi 14 Ultra",
+    "POCO X5","POCO X5 Pro","POCO X6","POCO X6 Pro","POCO M5","POCO M6","POCO F5","Otro modelo"],
+
+  "Huawei": ["Y6","Y7","Y8","Y9","Y6p","Y7p","Y8p","Y9a","Y9s",
+    "P30","P30 Pro","P30 Lite","P40","P40 Pro","P40 Lite","P50","P50 Pro",
+    "Nova 5T","Nova 7","Nova 8","Nova 9","Nova 10","Nova 11","Nova 12",
+    "Mate 30","Mate 40","Mate 50","Honor X8","Honor X9","Otro modelo"],
+
+  "LG": ["K40","K40s","K50","K50s","K51","K52","K61","K71","K92",
+    "Q60","Q70","V40","V50","V60","G7","G8","Stylo 5","Stylo 6","Otro modelo"],
+
+  "Nokia": ["C01 Plus","C02","C12","C21","C21 Plus","C31","C32","C33",
+    "G10","G11","G20","G21","G22","G42","X10","X20","X30","Otro modelo"],
+
+  "Sony": ["Xperia 1 V","Xperia 5 V","Xperia 10 V","Xperia 1 IV","Xperia 5 IV",
+    "Xperia 10 IV","Xperia 1 III","Xperia 5 III","Xperia 10 III","Otro modelo"],
+
+  "OPPO": ["A15","A16","A17","A18","A38","A54","A57","A58","A74","A76","A78","A96",
+    "Reno 8","Reno 9","Reno 10","Reno 11","Find X5","Find X6","Otro modelo"],
+
+  "Vivo": ["Y01","Y02","Y11","Y15","Y16","Y17","Y20","Y21","Y22","Y33","Y35","Y36",
+    "Y52","Y55","Y72","Y76","V21","V23","V25","V27","V29","T1","T2","Otro modelo"],
+
+  "OnePlus": ["Nord CE 3","Nord CE 3 Lite","Nord 3","Nord N30","10 Pro","11","11R","12","12R","Otro modelo"],
+
+  "Realme": ["C11","C15","C20","C21","C25","C30","C33","C35","C51","C53","C55","C67",
+    "9","9 Pro","10","10 Pro","11","11 Pro","12","12 Pro","Narzo 50","Narzo 60","Otro modelo"],
+
+  "ZTE": ["Blade A3","Blade A5","Blade A7","Blade A31","Blade A51","Blade A71","Blade V40","Otro modelo"],
+
+  "Alcatel": ["1B","1C","1E","1L","1S","3L","1V","3V","TCL 20","TCL 30","Otro modelo"],
+};
+
+function onBrandChange(){
+  const brand = document.getElementById("iBrand").value;
+  const otherInp = document.getElementById("iBrandOther");
+  const modelWrap = document.getElementById("modelWrap");
+  const modelSel = document.getElementById("iModel");
+  const modelOther = document.getElementById("iModelOther");
+
+  // Mostrar/ocultar campo "otra marca"
+  otherInp.style.display = brand==="otro" ? "block" : "none";
+
+  // Cargar modelos si existe la marca
+  if(brand && brand!=="otro" && MODELS[brand]){
+    modelSel.innerHTML = '<option value="">— Seleccionar modelo —</option>' +
+      MODELS[brand].map(m=>`<option value="${m}">${m}</option>`).join("");
+    modelWrap.style.display = "block";
+    modelOther.style.display = "none";
+  } else {
+    modelWrap.style.display = "none";
+    modelSel.innerHTML = "";
+    modelOther.style.display = "none";
+  }
+}
+
+function checkOtherModel(){
+  const v = document.getElementById("iModel").value;
+  document.getElementById("iModelOther").style.display = v==="Otro modelo" ? "block" : "none";
 }
 
 // ═══════════════════════════════════════
