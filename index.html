@@ -447,46 +447,44 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         margin-top:6px;min-height:16px" id="photoSt"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" id="photoPrev"></div>
 
-      <!-- ANÁLISIS IA -->
-      <div id="aiPanel" style="display:none;margin-top:12px">
-        <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);
-          border-radius:12px;padding:12px 14px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <span style="font-size:0.72rem;color:#a78bfa;font-family:'JetBrains Mono',monospace;
-              font-weight:700;text-transform:uppercase;letter-spacing:0.08em">🤖 Análisis IA</span>
-            <button onclick="analyzePhotos()" id="btnAnalyze"
-              style="padding:5px 12px;background:linear-gradient(135deg,#7c3aed,#a78bfa);
-              color:#fff;border:none;border-radius:8px;font-size:0.75rem;font-weight:700;
-              cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:0.04em">
-              🔍 Analizar fotos
-            </button>
-          </div>
-          <div id="aiResult" style="font-size:0.78rem;color:var(--muted);line-height:1.6;
-            min-height:20px;font-style:italic">
-            Toca "Analizar fotos" para detectar daños, marca y modelo automáticamente.
-          </div>
-          <div id="aiApplyRow" style="display:none;margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-            <button onclick="applyAIResult()" style="padding:6px 12px;
-              background:rgba(16,185,129,0.15);color:var(--grn);
-              border:1px solid rgba(16,185,129,0.4);border-radius:8px;
-              font-size:0.75rem;font-weight:700;cursor:pointer;font-family:'Rajdhani',sans-serif">
-              ✅ Aplicar al formulario
-            </button>
-            <button onclick="document.getElementById('aiPanel').style.display='none'" 
-              style="padding:6px 12px;background:transparent;color:var(--muted);
-              border:1px solid var(--bdr);border-radius:8px;
-              font-size:0.75rem;cursor:pointer;font-family:'Rajdhani',sans-serif">
-              Ignorar
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="fg"><label class="lbl">Notas</label>
       <input class="inp" id="iNotes" type="text" placeholder="Ej: Trae cargador original…" autocomplete="off"></div>
     <button class="btn1" onclick="saveClient()">💾 Guardar Cliente</button>
+    <button onclick="printLabel()" style="width:100%;padding:12px;margin-top:9px;
+      background:rgba(0,212,255,0.1);color:var(--acc);
+      border:1px solid rgba(0,212,255,0.3);border-radius:12px;
+      font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+      🖨️ Vista previa e Imprimir Etiqueta
+    </button>
     <button class="btn2" onclick="closeM('mAdd')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL ETIQUETA -->
+<div class="mover" id="mLabel">
+  <div class="modal" style="padding-bottom:24px">
+    <div class="mhdl"></div>
+    <div class="mtit">🖨️ Etiqueta de Servicio</div>
+    <div id="labelPreview" style="background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;
+      color:#111;font-family:'Inter',sans-serif">
+      <!-- generado por JS -->
+    </div>
+    <button class="btn1" onclick="doPrint()" style="margin-bottom:9px">
+      🖨️ Imprimir / Guardar PDF
+    </button>
+    <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.15);
+      border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:0.74rem;
+      color:var(--muted);line-height:1.6">
+      💡 <strong style="color:var(--acc)">Impresora de etiquetas WiFi:</strong><br>
+      1. Conecta tu impresora (Brother, Zebra, Dymo) a la misma red WiFi<br>
+      2. Toca "Imprimir" — se abrirá el diálogo del sistema<br>
+      3. Selecciona tu impresora de la lista<br>
+      4. Ajusta el tamaño al de tu etiqueta (62mm, 50mm, etc.)
+    </div>
+    <button class="btn2" onclick="closeM('mLabel')">Cerrar</button>
   </div>
 </div>
 
@@ -936,7 +934,7 @@ async function saveClient(){
   const otroTxt=(document.getElementById("iOtro").value||"").trim();
 
   if(!name){toast("Falta el nombre","error");return;}
-  if(!phone){toast("Falta el teléfono","error");return;}
+
   if(selTypes.size===0){toast("Elige al menos un tipo de reparación","error");return;}
 
   // Si seleccionó "Otro" sin descripción
@@ -1073,7 +1071,7 @@ function addPhotos(e){
   files.forEach(f=>{
     if(!f.type.startsWith("image/")){
       done++;
-      if(done===files.length){ renderPrev(); showAIPanel(); }
+      if(done===files.length){ renderPrev(); }
       return;
     }
     compress(f,b64=>{
@@ -1083,146 +1081,13 @@ function addPhotos(e){
         renderPrev();
         const st=document.getElementById("photoSt");
         if(st) st.textContent=photos.length+" foto(s) lista(s)";
-        showAIPanel();
       }
     });
   });
   setTimeout(()=>{ try{e.target.value="";}catch(err){} },500);
 }
 
-function showAIPanel(){
-  const panel=document.getElementById("aiPanel");
-  if(panel && photos.length>0) panel.style.display="block";
-}
 
-// Resultado IA guardado para aplicar
-let _aiData = null;
-
-async function analyzePhotos(){
-  if(!photos.length){ toast("Primero agrega fotos","error"); return; }
-  const btn=document.getElementById("btnAnalyze");
-  const result=document.getElementById("aiResult");
-  const applyRow=document.getElementById("aiApplyRow");
-  btn.textContent="⏳ Analizando…";
-  btn.disabled=true;
-  result.style.color="var(--acc)";
-  result.textContent="Analizando imágenes con IA…";
-  applyRow.style.display="none";
-  _aiData=null;
-
-  try{
-    // Usar solo la primera foto para el análisis (evitar tokens excesivos)
-    const imgB64 = photos[0].split(",")[1];
-    const mediaType = photos[0].split(";")[0].split(":")[1] || "image/jpeg";
-
-    const response = await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        model:"claude-sonnet-4-20250514",
-        max_tokens:1000,
-        system:`Eres un técnico experto en reparación de celulares. Analiza la foto del dispositivo y responde ÚNICAMENTE en JSON válido sin texto adicional, sin markdown, sin explicaciones. El formato exacto debe ser:
-{"marca":"","modelo":"","danios":[],"estado":"","notas":""}
-Donde:
-- marca: nombre de la marca (Samsung, iPhone, Motorola, Xiaomi, etc.) o "" si no se puede determinar
-- modelo: modelo específico (ej: Galaxy A54, iPhone 13) o "" si no se puede determinar  
-- danios: array de strings con daños visibles (ej: ["Pantalla rota","Cámara rayada","Marco doblado"])
-- estado: "bueno","regular","malo" según condición general
-- notas: descripción breve de observaciones importantes en español, máximo 2 oraciones`,
-        messages:[{
-          role:"user",
-          content:[
-            {type:"image",source:{type:"base64",media_type:mediaType,data:imgB64}},
-            {type:"text",text:"Analiza este dispositivo móvil. Identifica la marca, modelo, daños físicos visibles y estado general."}
-          ]
-        }]
-      })
-    });
-
-    const data = await response.json();
-    if(data.error){ throw new Error(data.error.message); }
-
-    const text = data.content[0].text.trim();
-    // Limpiar posible markdown
-    const clean = text.replace(/```json|```/g,"").trim();
-    _aiData = JSON.parse(clean);
-
-    // Mostrar resultado formateado
-    let html = "";
-    if(_aiData.marca) html += `<b style="color:var(--acc)">📱 ${_aiData.marca}${_aiData.modelo?" "+_aiData.modelo:""}</b><br>`;
-    if(_aiData.danios && _aiData.danios.length){
-      html += `<b style="color:var(--warn)">⚠️ Daños:</b> ${_aiData.danios.join(", ")}<br>`;
-    }
-    if(_aiData.estado) html += `<b style="color:var(--muted)">Estado:</b> ${_aiData.estado}<br>`;
-    if(_aiData.notas) html += `<span style="color:var(--txt)">${_aiData.notas}</span>`;
-
-    result.style.color="var(--txt)";
-    result.innerHTML = html || "No se detectaron daños visibles.";
-    applyRow.style.display="flex";
-
-  }catch(err){
-    result.style.color="var(--red)";
-    result.textContent="Error al analizar: "+err.message;
-    console.error("AI analysis error:",err);
-  }finally{
-    btn.textContent="🔍 Re-analizar";
-    btn.disabled=false;
-  }
-}
-
-function applyAIResult(){
-  if(!_aiData) return;
-
-  // Aplicar marca
-  if(_aiData.marca){
-    const brandSel=document.getElementById("iBrand");
-    const opts=[...brandSel.options].map(o=>o.value.toLowerCase());
-    const match=opts.findIndex(o=>o.includes(_aiData.marca.toLowerCase())||_aiData.marca.toLowerCase().includes(o.replace(" / apple","")));
-    if(match>0){
-      brandSel.selectedIndex=match;
-      onBrandChange();
-      // Aplicar modelo si existe
-      if(_aiData.modelo){
-        setTimeout(()=>{
-          const modelSel=document.getElementById("iModel");
-          if(modelSel){
-            const mOpts=[...modelSel.options].map(o=>o.value.toLowerCase());
-            const mMatch=mOpts.findIndex(o=>o.includes(_aiData.modelo.toLowerCase())||_aiData.modelo.toLowerCase().includes(o));
-            if(mMatch>0){ modelSel.selectedIndex=mMatch; checkOtherModel(); }
-            else{
-              // No encontrado, poner en "Otro modelo"
-              const otroIdx=mOpts.findIndex(o=>o.includes("otro"));
-              if(otroIdx>0){ modelSel.selectedIndex=otroIdx; checkOtherModel();
-                const mo=document.getElementById("iModelOther"); if(mo) mo.value=_aiData.modelo; }
-            }
-          }
-        },200);
-      }
-    } else {
-      // Marca no en lista, usar "otro"
-      brandSel.value="otro"; onBrandChange();
-      const bo=document.getElementById("iBrandOther"); if(bo) bo.value=_aiData.marca;
-      if(_aiData.modelo){
-        const mo=document.getElementById("iModelOther"); if(mo) mo.value=_aiData.modelo;
-        const mw=document.getElementById("modelWrap"); if(mw) mw.style.display="block";
-      }
-    }
-  }
-
-  // Aplicar notas (concatenar con lo existente)
-  const notasEl=document.getElementById("iNotes");
-  const parts=[];
-  if(_aiData.danios && _aiData.danios.length) parts.push("Daños: "+_aiData.danios.join(", "));
-  if(_aiData.notas) parts.push(_aiData.notas);
-  if(parts.length){
-    const existing=(notasEl.value||"").trim();
-    notasEl.value=(existing?existing+". ":"")+parts.join(". ");
-  }
-
-  toast("✅ Datos aplicados al formulario","success");
-  document.getElementById("aiApplyRow").style.display="none";
-  document.getElementById("aiResult").innerHTML += '<br><span style="color:var(--grn)">✅ Aplicado</span>';
-}
 function renderPrev(){
   document.getElementById("photoPrev").innerHTML=photos.map((s,i)=>`
     <div style="position:relative;width:62px;height:62px">
@@ -1300,10 +1165,7 @@ function resetAdd(){
   _r("otroX", el=>el.style.display="none");
   document.getElementById("photoPrev").innerHTML="";
   document.getElementById("photoSt").textContent="";
-  const ap=document.getElementById("aiPanel");if(ap)ap.style.display="none";
-  const ar=document.getElementById("aiResult");if(ar){ar.textContent="Toca 'Analizar fotos' para detectar daños, marca y modelo automáticamente.";ar.style.color="var(--muted)";}
-  const arp=document.getElementById("aiApplyRow");if(arp)arp.style.display="none";
-  _aiData=null;
+
   document.getElementById("refNum").textContent=genRef();
 }
 
@@ -1602,6 +1464,134 @@ document.getElementById("importFile").addEventListener("change",function(e){
 
 // close modals on overlay click
 document.querySelectorAll(".mover").forEach(m=>{m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("on");});});
+
+// ═══════════════════════════════════════
+//  ETIQUETA E IMPRESIÓN
+// ═══════════════════════════════════════
+function getLabelData(){
+  const ref    = document.getElementById("refNum")?.textContent || "------";
+  const name   = (document.getElementById("iName")?.value||"").trim();
+  const phone  = (document.getElementById("iPhone")?.value||"").trim();
+  const brandS = document.getElementById("iBrand")?.value||"";
+  const brandO = document.getElementById("iBrandOther")?.value||"";
+  const brand  = brandS==="otro"?brandO:brandS;
+  const modelS = document.getElementById("iModel")?.value||"";
+  const modelO = document.getElementById("iModelOther")?.value||"";
+  const model  = modelS==="Otro modelo"?modelO:modelS;
+  const price  = document.getElementById("iPrice")?.value||"";
+  const notes  = document.getElementById("iNotes")?.value||"";
+  const types  = [...selTypes];
+  const shopN  = document.getElementById("shopOwner")?.textContent?.replace(" ✏️","")?.trim()||"Servicell";
+  const shopP  = document.getElementById("shopPhone")?.textContent?.replace("📞 ","")?.trim()||"";
+  return {ref,name,phone,brand,model,price,notes,types,shopN,shopP,date:fecha()};
+}
+
+function buildLabelHTML(d){
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
+    `REF:${d.ref}|${d.name}|${d.brand} ${d.model}|${d.types.join(",")}|$${d.price}`
+  )}`;
+  return `
+  <div style="width:100%;max-width:320px;margin:0 auto;font-family:'Inter',sans-serif;
+    background:#fff;color:#111;border:2px solid #000;border-radius:8px;padding:14px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+    <!-- Header taller -->
+    <div style="text-align:center;border-bottom:1.5px solid #000;padding-bottom:8px;margin-bottom:10px">
+      <div style="font-weight:800;font-size:1.1rem;letter-spacing:0.06em">${d.shopN.toUpperCase()}</div>
+      ${d.shopP?`<div style="font-size:0.72rem;color:#444">${d.shopP}</div>`:""}
+    </div>
+    <!-- REF grande -->
+    <div style="text-align:center;margin-bottom:10px">
+      <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:#666">N° de Referencia</div>
+      <div style="font-size:2rem;font-weight:900;letter-spacing:0.15em;color:#000;line-height:1">${d.ref}</div>
+    </div>
+    <!-- Info + QR -->
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        ${d.name?`<div style="font-weight:700;font-size:0.9rem;margin-bottom:2px">${d.name}</div>`:""}
+        ${d.phone?`<div style="font-size:0.75rem;color:#555;margin-bottom:4px">📞 ${d.phone}</div>`:""}
+        ${(d.brand||d.model)?`<div style="font-size:0.78rem;font-weight:600;margin-bottom:3px">📱 ${[d.brand,d.model].filter(Boolean).join(" ")}</div>`:""}
+        ${d.types.length?`<div style="font-size:0.72rem;margin-bottom:3px">🔧 ${d.types.join(" · ")}</div>`:""}
+        ${d.price?`<div style="font-size:0.95rem;font-weight:800;color:#000;margin-top:4px">$ ${parseFloat(d.price).toFixed(2)}</div>`:""}
+        ${d.notes?`<div style="font-size:0.68rem;color:#666;margin-top:4px;font-style:italic">${d.notes.substring(0,60)}${d.notes.length>60?"…":""}</div>`:""}
+      </div>
+      <!-- QR -->
+      <div style="flex-shrink:0;text-align:center">
+        <img src="${qrUrl}" width="90" height="90" style="border:1px solid #ddd;border-radius:4px;display:block">
+        <div style="font-size:0.58rem;color:#888;margin-top:2px">Escanear</div>
+      </div>
+    </div>
+    <!-- Footer fecha -->
+    <div style="border-top:1px solid #ccc;margin-top:10px;padding-top:6px;
+      font-size:0.65rem;color:#888;text-align:right">${d.date}</div>
+  </div>`;
+}
+
+function printLabel(){
+  const d = getLabelData();
+  if(!d.name&&!d.ref){ toast("Completa el formulario primero","error"); return; }
+  document.getElementById("labelPreview").innerHTML = buildLabelHTML(d);
+  openM("mLabel");
+}
+
+async function printCardLabel(id){
+  spin(true,"Preparando etiqueta…");
+  try{
+    const snap = await db.collection("clients").doc(id).get();
+    if(!snap.exists){ spin(false); return; }
+    const c = snap.data();
+    const d = {
+      ref:    c.ref||"------",
+      name:   c.name||"",
+      phone:  c.phone||"",
+      brand:  c.brand||"",
+      model:  c.model||"",
+      price:  c.price||"",
+      notes:  c.notes||"",
+      types:  Array.isArray(c.repairTypes)?c.repairTypes:(c.repairType?[c.repairType]:[]),
+      shopN:  document.getElementById("shopOwner")?.textContent?.replace(" ✏️","")?.trim()||"Servicell",
+      shopP:  document.getElementById("shopPhone")?.textContent?.replace("📞 ","")?.trim()||"",
+      date:   c.dateIn||fecha()
+    };
+    document.getElementById("labelPreview").innerHTML = buildLabelHTML(d);
+    openM("mLabel");
+  }catch(e){ toast("Error: "+e.message,"error"); }
+  finally{ spin(false); }
+}
+
+function doPrint(){
+  const preview = document.getElementById("labelPreview").innerHTML;
+  const win = window.open("","_blank","width=400,height=500");
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Etiqueta Servicell</title>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{background:#fff;display:flex;align-items:center;justify-content:center;
+        min-height:100vh;padding:10px;font-family:'Inter',sans-serif;}
+      @media print{
+        body{padding:0;}
+        .no-print{display:none!important;}
+        @page{margin:4mm;size:auto;}
+      }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  </head><body>
+    ${preview}
+    <div class="no-print" style="margin-top:16px;text-align:center">
+      <button onclick="window.print()" style="padding:12px 28px;background:#000;color:#fff;
+        border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;
+        margin-right:8px">🖨️ Imprimir</button>
+      <button onclick="window.close()" style="padding:12px 20px;background:#eee;color:#333;
+        border:none;border-radius:8px;font-size:1rem;cursor:pointer">Cerrar</button>
+      <p style="margin-top:12px;font-size:0.75rem;color:#888">
+        Para impresora de etiquetas: selecciona tu impresora WiFi en el diálogo y ajusta el tamaño de página al de tu etiqueta.
+      </p>
+    </div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>{ try{ win.focus(); }catch(e){} }, 300);
+}
 
 // ── SERVICE WORKER PWA ──
 if('serviceWorker' in navigator){
