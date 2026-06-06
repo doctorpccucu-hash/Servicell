@@ -1482,8 +1482,11 @@ function getLabelData(){
   const notes  = document.getElementById("iNotes")?.value||"";
   const types  = [...selTypes];
   const shopN  = document.getElementById("shopOwner")?.textContent?.replace(" ✏️","")?.trim()||"Servicell";
+  const shopT  = document.getElementById("shopTitle")?.textContent?.trim()||"SERVICELL";
   const shopP  = document.getElementById("shopPhone")?.textContent?.replace("📞 ","")?.trim()||"";
-  return {ref,name,phone,brand,model,price,notes,types,shopN,shopP,date:fecha()};
+  const logoEl = document.getElementById("logoImg");
+  const logo   = (logoEl && logoEl.style.display!=="none") ? logoEl.src : null;
+  return {ref,name,phone,brand,model,price,notes,types,shopN,shopT,shopP,logo,date:fecha()};
 }
 
 function buildLabelHTML(d){
@@ -1494,10 +1497,18 @@ function buildLabelHTML(d){
   <div style="width:100%;max-width:320px;margin:0 auto;font-family:'Inter',sans-serif;
     background:#fff;color:#111;border:2px solid #000;border-radius:8px;padding:14px;
     box-shadow:0 2px 8px rgba(0,0,0,0.15)">
-    <!-- Header taller -->
-    <div style="text-align:center;border-bottom:1.5px solid #000;padding-bottom:8px;margin-bottom:10px">
-      <div style="font-weight:800;font-size:1.1rem;letter-spacing:0.06em">${d.shopN.toUpperCase()}</div>
-      ${d.shopP?`<div style="font-size:0.72rem;color:#444">${d.shopP}</div>`:""}
+    <!-- Header taller: logo + nombre negocio + propietario -->
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:1.5px solid #000;
+      padding-bottom:8px;margin-bottom:10px">
+      ${d.logo?`<img src="${d.logo}" style="width:44px;height:44px;object-fit:cover;
+        border-radius:6px;flex-shrink:0;border:1px solid #ddd" alt="logo">`:""}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:900;font-size:1.05rem;letter-spacing:0.05em;line-height:1">
+          ${d.shopT||"SERVICELL"}
+        </div>
+        ${d.shopN&&d.shopN!==d.shopT?`<div style="font-size:0.72rem;color:#555;margin-top:1px">${d.shopN}</div>`:""}
+        ${d.shopP?`<div style="font-size:0.7rem;color:#666">${d.shopP}</div>`:""}
+      </div>
     </div>
     <!-- REF grande -->
     <div style="text-align:center;margin-bottom:10px">
@@ -1549,7 +1560,9 @@ async function printCardLabel(id){
       notes:  c.notes||"",
       types:  Array.isArray(c.repairTypes)?c.repairTypes:(c.repairType?[c.repairType]:[]),
       shopN:  document.getElementById("shopOwner")?.textContent?.replace(" ✏️","")?.trim()||"Servicell",
+      shopT:  document.getElementById("shopTitle")?.textContent?.trim()||"SERVICELL",
       shopP:  document.getElementById("shopPhone")?.textContent?.replace("📞 ","")?.trim()||"",
+      logo:   (()=>{const l=document.getElementById("logoImg");return l&&l.style.display!=="none"?l.src:null;})(),
       date:   c.dateIn||fecha()
     };
     document.getElementById("labelPreview").innerHTML = buildLabelHTML(d);
