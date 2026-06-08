@@ -520,7 +520,14 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
       <div style="font-size:0.7rem;color:var(--warn);font-family:'JetBrains Mono',monospace;margin-top:5px;line-height:1.5">
         ⚠ Si no retira en el plazo el equipo será desarmado para recuperar repuestos.</div>
     </div>
-    <button class="btn1" onclick="saveClient()">💾 Guardar y ver etiqueta</button>
+    <button class="btn1" onclick="saveClient()">💾 Guardar Cliente</button>
+    <button onclick="printLabel()" style="width:100%;padding:12px;margin-top:9px;
+      background:rgba(0,212,255,0.1);color:var(--acc);
+      border:1px solid rgba(0,212,255,0.3);border-radius:12px;
+      font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+      🖨️ Vista previa e Imprimir Etiqueta
+    </button>
     <button class="btn2" onclick="closeM('mAdd')">Cancelar</button>
   </div>
 </div>
@@ -533,6 +540,17 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
     <div id="labelPreview" style="background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;
       color:#111;font-family:'Inter',sans-serif">
       <!-- generado por JS -->
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <label style="font-size:0.8rem;color:var(--muted);white-space:nowrap">Copias:</label>
+      <select id="_printCopies" style="flex:1;background:var(--surf);border:1px solid var(--bdr);
+        border-radius:8px;padding:8px 12px;color:var(--txt);font-size:0.9rem;outline:none;
+        -webkit-appearance:none;appearance:none">
+        <option value="1">1 copia</option>
+        <option value="2" selected>2 copias (por defecto)</option>
+        <option value="3">3 copias</option>
+        <option value="4">4 copias</option>
+      </select>
     </div>
     <button class="btn1" onclick="doPrint()" style="margin-bottom:9px">
       🖨️ Imprimir / Guardar PDF
@@ -1007,6 +1025,8 @@ function renderCards(all){
         <div class="cas">
           ${!c.delivered?`<button class="ab ed" onclick="openEdit('${c.id}')" title="Editar">✏️</button>`:""}
           ${!c.delivered?`<button class="ab ok" onclick="deliverClient('${c.id}')">✓</button>`:""}
+          <button class="ab" onclick="printCardLabel('${c.id}')" title="Imprimir etiqueta"
+            style="border-color:rgba(0,212,255,0.35);color:var(--acc)">🖨</button>
           <button class="ab dl" onclick="deleteClient('${c.id}')">🗑</button>
         </div>
       </div>
@@ -1056,7 +1076,7 @@ async function saveClient(){
     const ref=genRef();
     const pickupDays=parseInt(document.getElementById("iPickupDays")?.value||"60");
     const pickupDeadline=pickupDays>0?(Date.now()+pickupDays*86400000):0;
-    const docRef=await db.collection("clients").add({
+    await db.collection("clients").add({
       ref,name,phone,notes,brand,model,
       price:price?parseFloat(price).toFixed(2):"",
       repairTypes:finalTypes,
@@ -1069,8 +1089,6 @@ async function saveClient(){
     });
     closeM("mAdd");
     toast(`✅ ${name} — Ref. ${ref}`,"success",3500);
-    // Abrir etiqueta con la ref real recién guardada
-    await printCardLabel(docRef.id);
   }catch(e){toast("Error: "+e.message,"error");}
   finally{spin(false);}
 }
@@ -1724,23 +1742,48 @@ async function printCardLabel(id){
 function doPrint(){
   const preview=document.getElementById("labelPreview").innerHTML;
   if(!preview||preview.trim()===""){toast("No hay etiqueta para imprimir","error");return;}
-  // Usar iframe oculto para imprimir sin popup
-  let ifr=document.getElementById("_printFrame");
-  if(!ifr){ifr=document.createElement("iframe");ifr.id="_printFrame";
-    ifr.style.cssText="position:fixed;left:-9999px;top:0;width:400px;height:600px;border:none;";
-    document.body.appendChild(ifr);}
+
+  const copies=parseInt(document.getElementById("_printCopies")?.value||"2");
+
+  // Generar N copias del contenido con salto de página entre ellas
+  let body="";
+  for(let i=0;i<copies;i++){
+    body+=`<div class="lbl-copy"${i<copies-1?' style="page-break-after:always"':""}>
+      ${preview}
+    </div>`;
+  }
+
   const content=`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
-      body{background:#fff;padding:12px;font-family:'Inter',sans-serif;}
+      body{background:#fff;font-family:'Inter',sans-serif;}
+      .lbl-copy{padding:12px;}
       @page{margin:4mm;size:auto;}
-    </style></head><body>${preview}</body></html>`;
-  ifr.onload=()=>{
+      @media print{.lbl-copy{page-break-after:always;}}
+      .lbl-copy:last-child{page-break-after:avoid!important;}
+    </style>
+  </head><body>
+    ${body}
+    <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const blob=new Blob([content],{type:"text/html;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+
+  let ifr=document.getElementById("_printFrame");
+  if(ifr)ifr.remove();
+  ifr=document.createElement("iframe");
+  ifr.id="_printFrame";
+  ifr.style.cssText="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:none;opacity:0;";
+  document.body.appendChild(ifr);
+
+  ifr.onload=function(){
     try{ifr.contentWindow.focus();ifr.contentWindow.print();}
-    catch(e){toast("Error al imprimir: "+e.message,"error");}
+    catch(e){}
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
   };
-  ifr.srcdoc=content;
+  ifr.src=url;
 }
 
 // ═══════ QR SCANNER ═══════
