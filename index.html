@@ -149,6 +149,51 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
   border:1px solid rgba(16,185,129,0.4);border-radius:8px;padding:4px 10px;
   font-size:0.72rem;color:var(--grn);font-weight:600;margin-top:7px;}
 
+/* PICKUP LIMIT BADGES */
+.wbadge{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:4px 10px;
+  font-size:0.72rem;font-weight:600;margin-top:6px;}
+.wbadge.ok{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.4);color:var(--grn);}
+.wbadge.warn{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);color:var(--warn);}
+.wbadge.exp{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.4);color:var(--red);}
+
+/* SEARCHABLE SELECT */
+.ss-wrap{position:relative;}
+.ss-input{width:100%;background:var(--surf);border:1px solid var(--bdr);border-radius:10px;
+  padding:12px 14px;color:var(--txt);font-size:0.85rem;outline:none;
+  transition:border-color 0.2s;-webkit-appearance:none;appearance:none;}
+.ss-input:focus{border-color:var(--acc);}
+.ss-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);
+  border:1px solid var(--acc);border-radius:10px;z-index:400;max-height:200px;overflow-y:auto;
+  display:none;box-shadow:0 8px 24px rgba(0,0,0,0.6);}
+.ss-drop.on{display:block;}
+.ss-opt{padding:10px 14px;font-size:0.85rem;cursor:pointer;color:var(--txt);
+  border-bottom:1px solid var(--bdr);transition:background 0.1s;}
+.ss-opt:last-child{border-bottom:none;}
+.ss-opt:hover,.ss-opt.hi{background:rgba(0,212,255,0.08);color:var(--acc);}
+.ss-opt.none{color:var(--muted);font-style:italic;cursor:default;}
+
+/* DASHBOARD */
+#mDash .modal{max-height:92vh;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.kpi{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;padding:13px;text-align:center;}
+.kpi-val{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.6rem;color:var(--acc);line-height:1;}
+.kpi-lbl{font-size:0.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace;
+  text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;}
+.kpi.grn .kpi-val{color:var(--grn);}
+.kpi.pur .kpi-val{color:#a78bfa;}
+.kpi.yel .kpi-val{color:var(--gold);}
+.chart-wrap{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:12px;}
+.chart-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;color:var(--txt);margin-bottom:12px;}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.bar-label{font-size:0.68rem;font-family:'JetBrains Mono',monospace;color:var(--muted);
+  width:82px;flex-shrink:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;}
+.bar-bg{flex:1;height:20px;background:var(--bdr);border-radius:6px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:6px;transition:width 0.5s ease;background:linear-gradient(90deg,var(--acc),#0099cc);}
+.bar-count{font-size:0.7rem;font-family:'JetBrains Mono',monospace;color:var(--txt);width:24px;text-align:right;flex-shrink:0;}
+.month-sel{width:100%;background:var(--surf);border:1px solid var(--bdr);border-radius:10px;
+  padding:10px 14px;color:var(--txt);font-size:0.88rem;outline:none;margin-bottom:14px;
+  -webkit-appearance:none;appearance:none;}
+
 /* EMPTY */
 .empty{text-align:center;padding:52px 24px;color:var(--muted);}
 .eico{font-size:42px;margin-bottom:12px;}
@@ -309,6 +354,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         color:var(--muted);margin-top:1px;display:none"></div>
     </div>
     <div class="hbtns">
+      <button class="ibtn" id="btnDash" style="display:none" onclick="openDash()" title="Estadísticas">📊</button>
       <button class="ibtn" id="btnSettings" style="display:none" onclick="openSettings()" title="Configurar taller">⚙️</button>
       <button class="ibtn" id="btnAddUser" style="display:none" onclick="openM('mUser')" title="Crear usuario">👤+</button>
       <button class="ibtn" onclick="doLogout()" title="Salir">🚪</button>
@@ -376,23 +422,24 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 
     <!-- MARCA -->
     <div class="fg"><label class="lbl">Marca del equipo</label>
-      <select class="rsel" id="iBrand" onchange="onBrandChange()">
-        <option value="">— Seleccionar marca —</option>
-        <option>Samsung</option><option>iPhone / Apple</option><option>Motorola</option>
-        <option>Xiaomi</option><option>Huawei</option><option>LG</option>
-        <option>Nokia</option><option>Sony</option><option>OPPO</option>
-        <option>Vivo</option><option>OnePlus</option><option>Realme</option>
-        <option>ZTE</option><option>Alcatel</option><option>otro</option>
-      </select>
+      <div class="ss-wrap">
+        <input class="ss-input" id="iBrandSearch" type="text" placeholder="Buscar o escribir marca…"
+          autocomplete="off" oninput="ssBrandFilter(this.value)" onfocus="ssBrandFilter(this.value)">
+        <input type="hidden" id="iBrand">
+        <div class="ss-drop" id="brandDrop"></div>
+      </div>
       <input class="inp" id="iBrandOther" type="text" placeholder="Escribe la marca…"
         style="display:none;margin-top:8px" autocomplete="off">
     </div>
     <!-- MODELO -->
     <div class="fg" id="modelWrap" style="display:none">
       <label class="lbl">Modelo del equipo</label>
-      <select class="rsel" id="iModel" onchange="checkOtherModel()">
-        <option value="">— Seleccionar modelo —</option>
-      </select>
+      <div class="ss-wrap">
+        <input class="ss-input" id="iModelSearch" type="text" placeholder="Buscar modelo…"
+          autocomplete="off" oninput="ssModelFilter(this.value)" onfocus="ssModelFilter(this.value)">
+        <input type="hidden" id="iModel">
+        <div class="ss-drop" id="modelDrop"></div>
+      </div>
       <input class="inp" id="iModelOther" type="text" placeholder="Escribe el modelo…"
         style="display:none;margin-top:8px" autocomplete="off">
     </div>
@@ -451,6 +498,19 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 
     <div class="fg"><label class="lbl">Notas</label>
       <input class="inp" id="iNotes" type="text" placeholder="Ej: Trae cargador original…" autocomplete="off"></div>
+
+    <div class="fg">
+      <label class="lbl">⏳ Plazo límite para retirar</label>
+      <select class="rsel" id="iPickupDays">
+        <option value="60">2 meses — estándar</option>
+        <option value="30">1 mes</option>
+        <option value="90">3 meses</option>
+        <option value="0">Sin límite</option>
+      </select>
+      <div style="font-size:0.7rem;color:var(--warn);font-family:'JetBrains Mono',monospace;margin-top:5px;line-height:1.5">
+        ⚠ Si no retira en el plazo el equipo será desarmado para recuperar repuestos.</div>
+    </div>
+
     <button class="btn1" onclick="saveClient()">💾 Guardar Cliente</button>
     <button onclick="printLabel()" style="width:100%;padding:12px;margin-top:9px;
       background:rgba(0,212,255,0.1);color:var(--acc);
@@ -572,6 +632,30 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
   </div>
 </div>
 
+<!-- MODAL DASHBOARD -->
+<div class="mover" id="mDash">
+  <div class="modal">
+    <div class="mhdl"></div>
+    <div class="mtit">📊 Estadísticas del Taller</div>
+    <select class="month-sel" id="dashMonth" onchange="renderDash()"></select>
+    <div class="dash-grid">
+      <div class="kpi"><div class="kpi-val" id="kTot">—</div><div class="kpi-lbl">Registros</div></div>
+      <div class="kpi grn"><div class="kpi-val" id="kInc">—</div><div class="kpi-lbl">Ingresos $</div></div>
+      <div class="kpi pur"><div class="kpi-val" id="kRep">—</div><div class="kpi-lbl">Reparados</div></div>
+      <div class="kpi yel"><div class="kpi-val" id="kDel">—</div><div class="kpi-lbl">Entregados</div></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">🔧 Reparaciones por tipo</div>
+      <div id="dashChart"><div style="color:var(--muted);font-size:0.8rem">Cargando…</div></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">📱 Marcas más frecuentes</div>
+      <div id="dashBrands"><div style="color:var(--muted);font-size:0.8rem">Cargando…</div></div>
+    </div>
+    <button class="btn2" onclick="closeM('mDash')" style="margin-top:4px">Cerrar</button>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════
 //  FIREBASE
@@ -655,6 +739,7 @@ auth.onAuthStateChanged(async user=>{
     const _s=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
     _s("btnAddUser",  el=>el.style.display=isAdmin?"flex":"none");
     _s("btnSettings", el=>el.style.display=isAdmin?"flex":"none");
+    _s("btnDash",     el=>el.style.display=isAdmin?"flex":"none");
     _s("adminBar",    el=>el.style.display=isAdmin?"flex":"none");
     _s("logoInput",   el=>el.disabled=!isAdmin);
     _s("logoLabel",   el=>el.style.cursor=isAdmin?"pointer":"default");
@@ -822,6 +907,14 @@ function subscribeClients(){
     },err=>toast("Error sync: "+err.message,"error"));
 }
 
+function pickupBadge(c){
+  if(c.delivered||!c.repaired||!c.pickupDeadline)return"";
+  const days=Math.ceil((c.pickupDeadline-Date.now())/86400000);
+  if(days<0)return`<div class="wbadge exp">⚠️ Plazo vencido hace ${Math.abs(days)} días — pendiente desarmar</div>`;
+  if(days<=15)return`<div class="wbadge warn">⏰ ${days} día${days!==1?"s":""} para retirar</div>`;
+  return`<div class="wbadge ok">✅ Retirar antes: ${new Date(c.pickupDeadline).toLocaleDateString("es-MX")}</div>`;
+}
+
 function renderCards(all){
   const base=all.filter(c=>{
     if(tab==="pending")  return !c.delivered && !c.repaired;
@@ -910,6 +1003,7 @@ function renderCards(all){
       </div>
       ${c.notes?`<div class="cnotes">"${esc(c.notes)}"</div>`:""}
       ${repCheck}
+      ${pickupBadge(c)}
       ${evs}
       <div class="cdate">📅 ${c.dateIn}${c.dateOut?" · ✅ "+c.dateOut:""}</div>
       <div class="cby">👤 ${esc(c.createdBy||"")}${q?" · "+( c.delivered?"✅ Entregado":c.repaired?"🔧 Reparado":"⏳ Pendiente"):""}</div>
@@ -927,7 +1021,7 @@ async function saveClient(){
   const notes=(document.getElementById("iNotes").value||"").trim();
   const brandSel=document.getElementById("iBrand").value;
   const brandOther=(document.getElementById("iBrandOther").value||"").trim();
-  const brand=brandSel==="otro"?brandOther:brandSel;
+  const brand=brandSel==="Otro"?brandOther:(brandSel||brandOther);
   const modelSel=(document.getElementById("iModel")?.value||"").trim();
   const modelOther=(document.getElementById("iModelOther")?.value||"").trim();
   const model=modelSel==="Otro modelo"?modelOther:modelSel;
@@ -946,6 +1040,8 @@ async function saveClient(){
   spin(true,"Guardando…");
   try{
     const ref=genRef();
+    const pickupDays=parseInt(document.getElementById("iPickupDays")?.value||"60");
+    const pickupDeadline=pickupDays>0?(Date.now()+pickupDays*86400000):0;
     await db.collection("clients").add({
       ref,name,phone,notes,brand,model,
       price:price?parseFloat(price).toFixed(2):"",
@@ -953,6 +1049,7 @@ async function saveClient(){
       wetScreen:wetOn,repaired:false,
       evidences:[...photos],
       delivered:false,dateIn:fecha(),dateOut:null,
+      pickupDays,pickupDeadline,
       createdBy:me?.name||me?.email||"",
       createdAt:Date.now()
     });
@@ -1151,12 +1248,13 @@ function openM(id){
 }
 function closeM(id){document.getElementById(id).classList.remove("on");}
 function resetAdd(){
-  ["iName","iPhone","iPrice","iNotes","iOtro","iBrandOther"].forEach(i=>{const e=document.getElementById(i);if(e)e.value="";});
+  ["iName","iPhone","iPrice","iNotes","iOtro","iBrandOther","iBrandSearch","iModelSearch"].forEach(i=>{const e=document.getElementById(i);if(e)e.value="";});
   document.getElementById("iBrand").value="";
+  document.getElementById("iModel").value="";
   const mw=document.getElementById("modelWrap");if(mw)mw.style.display="none";
-  const ms=document.getElementById("iModel");if(ms)ms.innerHTML="";
   const mo=document.getElementById("iModelOther");if(mo){mo.value="";mo.style.display="none";}
   const bo=document.getElementById("iBrandOther");if(bo){bo.value="";bo.style.display="none";}
+  const pd=document.getElementById("iPickupDays");if(pd)pd.value="60";
   selTypes=new Set();wetOn=false;photos=[];
   document.querySelectorAll("#mAdd .chip").forEach(c=>c.classList.remove("on"));
   const _r=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
@@ -1165,7 +1263,6 @@ function resetAdd(){
   _r("otroX", el=>el.style.display="none");
   document.getElementById("photoPrev").innerHTML="";
   document.getElementById("photoSt").textContent="";
-
   document.getElementById("refNum").textContent=genRef();
 }
 
@@ -1390,33 +1487,68 @@ const MODELS = {
     "Otro modelo"],
 };
 
-function onBrandChange(){
-  const brand = document.getElementById("iBrand").value;
-  const otherInp = document.getElementById("iBrandOther");
-  const modelWrap = document.getElementById("modelWrap");
-  const modelSel = document.getElementById("iModel");
-  const modelOther = document.getElementById("iModelOther");
+// ═══════════════════════════════════════
+//  SEARCHABLE SELECT — MARCA / MODELO
+// ═══════════════════════════════════════
+const BRAND_LIST=["Samsung","iPhone / Apple","Motorola","Xiaomi","Huawei","LG","Nokia","Sony","OPPO","Vivo","OnePlus","Realme","ZTE","Alcatel","Otro"];
+let _ssModelList=[];
 
-  // Mostrar/ocultar campo "otra marca"
-  otherInp.style.display = brand==="otro" ? "block" : "none";
-
-  // Cargar modelos si existe la marca
-  if(brand && brand!=="otro" && MODELS[brand]){
-    modelSel.innerHTML = '<option value="">— Seleccionar modelo —</option>' +
-      MODELS[brand].map(m=>`<option value="${m}">${m}</option>`).join("");
-    modelWrap.style.display = "block";
-    modelOther.style.display = "none";
-  } else {
-    modelWrap.style.display = "none";
-    modelSel.innerHTML = "";
-    modelOther.style.display = "none";
+function ssBrandFilter(q){
+  q=(q||"").toLowerCase();
+  const drop=document.getElementById("brandDrop");
+  if(!drop)return;
+  const filtered=BRAND_LIST.filter(b=>!q||b.toLowerCase().includes(q));
+  drop.innerHTML=filtered.length
+    ?filtered.map(b=>`<div class="ss-opt" onmousedown="selectBrand('${b.replace(/'/g,"\\'")}')">${b}</div>`).join("")
+    :`<div class="ss-opt none">Sin resultados</div>`;
+  drop.classList.add("on");
+}
+function selectBrand(brand){
+  document.getElementById("iBrand").value=brand;
+  document.getElementById("iBrandSearch").value=brand;
+  document.getElementById("brandDrop").classList.remove("on");
+  // Mostrar campo libre si es "Otro"
+  const ob=document.getElementById("iBrandOther");
+  if(ob)ob.style.display=brand==="Otro"?"block":"none";
+  // Cargar modelos
+  const modelWrap=document.getElementById("modelWrap");
+  const mo=document.getElementById("iModelOther");
+  if(brand&&brand!=="Otro"&&MODELS[brand]){
+    _ssModelList=MODELS[brand];
+    document.getElementById("iModel").value="";
+    document.getElementById("iModelSearch").value="";
+    if(mo){mo.value="";mo.style.display="none";}
+    if(modelWrap)modelWrap.style.display="block";
+  }else{
+    _ssModelList=[];
+    if(modelWrap)modelWrap.style.display="none";
+    document.getElementById("iModel").value="";
   }
 }
-
-function checkOtherModel(){
-  const v = document.getElementById("iModel").value;
-  document.getElementById("iModelOther").style.display = v==="Otro modelo" ? "block" : "none";
+function ssModelFilter(q){
+  q=(q||"").toLowerCase();
+  const drop=document.getElementById("modelDrop");
+  if(!drop)return;
+  const filtered=_ssModelList.filter(m=>!q||m.toLowerCase().includes(q));
+  drop.innerHTML=filtered.length
+    ?filtered.map(m=>`<div class="ss-opt" onmousedown="selectModel('${m.replace(/'/g,"\\'")}')">${m}</div>`).join("")
+    :`<div class="ss-opt none">Sin resultados</div>`;
+  drop.classList.add("on");
 }
+function selectModel(model){
+  document.getElementById("iModel").value=model;
+  document.getElementById("iModelSearch").value=model;
+  document.getElementById("modelDrop").classList.remove("on");
+  const mo=document.getElementById("iModelOther");
+  if(mo)mo.style.display=model==="Otro modelo"?"block":"none";
+}
+// Cerrar dropdowns al hacer click fuera
+document.addEventListener("click",e=>{
+  if(!e.target.closest(".ss-wrap")){
+    document.querySelectorAll(".ss-drop").forEach(d=>d.classList.remove("on"));
+  }
+});
+function checkOtherModel(){}
 
 // ═══════════════════════════════════════
 //  TABS / SEARCH
@@ -1486,18 +1618,25 @@ function getLabelData(){
   const shopP  = document.getElementById("shopPhone")?.textContent?.replace("📞 ","")?.trim()||"";
   const logoEl = document.getElementById("logoImg");
   const logo   = (logoEl && logoEl.style.display!=="none") ? logoEl.src : null;
-  return {ref,name,phone,brand,model,price,notes,types,shopN,shopT,shopP,logo,date:fecha()};
+  const pd=parseInt(document.getElementById("iPickupDays")?.value||"60");
+  const pickupDeadline=pd>0?(Date.now()+pd*86400000):0;
+  return {ref,name,phone,brand,model,price,notes,types,shopN,shopT,shopP,logo,date:fecha(),pickupDeadline};
 }
 
 function buildLabelHTML(d){
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
     `REF:${d.ref}|${d.name}|${d.brand} ${d.model}|${d.types.join(",")}|$${d.price}`
   )}`;
+  const pickupLine=d.pickupDeadline>0
+    ?`<div style="margin-top:8px;padding:6px 8px;background:#fff3cd;border:1px solid #f0a500;
+        border-radius:5px;font-size:0.68rem;color:#7a4f00;font-weight:600">
+        ⏳ Retirar antes del: <strong>${new Date(d.pickupDeadline).toLocaleDateString("es-MX")}</strong><br>
+        <span style="font-weight:400">Pasado este plazo el equipo será desarmado para recuperar repuestos.</span>
+      </div>`:"";
   return `
   <div style="width:100%;max-width:320px;margin:0 auto;font-family:'Inter',sans-serif;
     background:#fff;color:#111;border:2px solid #000;border-radius:8px;padding:14px;
     box-shadow:0 2px 8px rgba(0,0,0,0.15)">
-    <!-- Header taller: logo + nombre negocio + propietario -->
     <div style="display:flex;align-items:center;gap:10px;border-bottom:1.5px solid #000;
       padding-bottom:8px;margin-bottom:10px">
       ${d.logo?`<img src="${d.logo}" style="width:44px;height:44px;object-fit:cover;
@@ -1510,12 +1649,10 @@ function buildLabelHTML(d){
         ${d.shopP?`<div style="font-size:0.7rem;color:#666">${d.shopP}</div>`:""}
       </div>
     </div>
-    <!-- REF grande -->
     <div style="text-align:center;margin-bottom:10px">
       <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:#666">N° de Referencia</div>
       <div style="font-size:2rem;font-weight:900;letter-spacing:0.15em;color:#000;line-height:1">${d.ref}</div>
     </div>
-    <!-- Info + QR -->
     <div style="display:flex;gap:10px;align-items:flex-start">
       <div style="flex:1;min-width:0">
         ${d.name?`<div style="font-weight:700;font-size:0.9rem;margin-bottom:2px">${d.name}</div>`:""}
@@ -1525,13 +1662,12 @@ function buildLabelHTML(d){
         ${d.price?`<div style="font-size:0.95rem;font-weight:800;color:#000;margin-top:4px">$ ${parseFloat(d.price).toFixed(2)}</div>`:""}
         ${d.notes?`<div style="font-size:0.68rem;color:#666;margin-top:4px;font-style:italic">${d.notes.substring(0,60)}${d.notes.length>60?"…":""}</div>`:""}
       </div>
-      <!-- QR -->
       <div style="flex-shrink:0;text-align:center">
         <img src="${qrUrl}" width="90" height="90" style="border:1px solid #ddd;border-radius:4px;display:block">
         <div style="font-size:0.58rem;color:#888;margin-top:2px">Escanear</div>
       </div>
     </div>
-    <!-- Footer fecha -->
+    ${pickupLine}
     <div style="border-top:1px solid #ccc;margin-top:10px;padding-top:6px;
       font-size:0.65rem;color:#888;text-align:right">${d.date}</div>
   </div>`;
@@ -1563,7 +1699,8 @@ async function printCardLabel(id){
       shopT:  document.getElementById("shopTitle")?.textContent?.trim()||"SERVICELL",
       shopP:  document.getElementById("shopPhone")?.textContent?.replace("📞 ","")?.trim()||"",
       logo:   (()=>{const l=document.getElementById("logoImg");return l&&l.style.display!=="none"?l.src:null;})(),
-      date:   c.dateIn||fecha()
+      date:   c.dateIn||fecha(),
+      pickupDeadline: c.pickupDeadline||0
     };
     document.getElementById("labelPreview").innerHTML = buildLabelHTML(d);
     openM("mLabel");
@@ -1572,38 +1709,108 @@ async function printCardLabel(id){
 }
 
 function doPrint(){
-  const preview = document.getElementById("labelPreview").innerHTML;
-  const win = window.open("","_blank","width=400,height=500");
-  win.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width">
+  const preview=document.getElementById("labelPreview").innerHTML;
+  if(!preview||preview.trim()===""){toast("No hay etiqueta para imprimir","error");return;}
+  const content=`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width">
     <title>Etiqueta Servicell</title>
-    <style>
-      *{margin:0;padding:0;box-sizing:border-box;}
-      body{background:#fff;display:flex;align-items:center;justify-content:center;
-        min-height:100vh;padding:10px;font-family:'Inter',sans-serif;}
-      @media print{
-        body{padding:0;}
-        .no-print{display:none!important;}
-        @page{margin:4mm;size:auto;}
-      }
-    </style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  </head><body>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>*{margin:0;padding:0;box-sizing:border-box;}
+    body{background:#fff;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;min-height:100vh;padding:12px;font-family:'Inter',sans-serif;}
+    .np{margin-top:18px;text-align:center;}
+    @media print{.np{display:none!important;}@page{margin:4mm;size:auto;}}
+    </style></head><body>
     ${preview}
-    <div class="no-print" style="margin-top:16px;text-align:center">
+    <div class="np">
       <button onclick="window.print()" style="padding:12px 28px;background:#000;color:#fff;
-        border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;
-        margin-right:8px">🖨️ Imprimir</button>
+        border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;margin-right:8px">
+        🖨️ Imprimir</button>
       <button onclick="window.close()" style="padding:12px 20px;background:#eee;color:#333;
         border:none;border-radius:8px;font-size:1rem;cursor:pointer">Cerrar</button>
-      <p style="margin-top:12px;font-size:0.75rem;color:#888">
-        Para impresora de etiquetas: selecciona tu impresora WiFi en el diálogo y ajusta el tamaño de página al de tu etiqueta.
+      <p style="margin-top:10px;font-size:0.75rem;color:#888">
+        Para impresora de etiquetas: selecciona tu impresora WiFi y ajusta el tamaño de página.
       </p>
     </div>
-  </body></html>`);
-  win.document.close();
-  setTimeout(()=>{ try{ win.focus(); }catch(e){} }, 300);
+  </body></html>`;
+  const win=window.open("","_blank","width=440,height=600");
+  if(win){
+    win.document.open();win.document.write(content);win.document.close();
+    setTimeout(()=>{try{win.focus();}catch(e){}},300);
+  }else{
+    const blob=new Blob([content],{type:"text/html"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    toast("Permite ventanas emergentes si no se abrió","info",4000);
+  }
+}
+
+// ═══════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════
+let _dashAll=[];
+function openDash(){
+  if(me?.role!=="admin"){toast("Solo el admin","error");return;}
+  spin(true,"Cargando estadísticas…");
+  db.collection("clients").orderBy("createdAt","desc").get()
+    .then(snap=>{
+      _dashAll=snap.docs.map(d=>({id:d.id,...d.data()}));
+      buildMonthSel();renderDash();openM("mDash");
+    })
+    .catch(e=>toast("Error: "+e.message,"error"))
+    .finally(()=>spin(false));
+}
+function buildMonthSel(){
+  const sel=document.getElementById("dashMonth");
+  const months=new Set();
+  _dashAll.forEach(c=>{
+    const p=(c.dateIn||"").split("/");
+    if(p.length>=3){const y=p[2].split(",")[0].trim();months.add(y+"-"+p[1].padStart(2,"0"));}
+  });
+  const now=new Date();
+  months.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
+  const sorted=[...months].sort((a,b)=>b.localeCompare(a));
+  sel.innerHTML=sorted.map(ym=>{
+    const[y,m]=ym.split("-");
+    const lbl=new Date(+y,+m-1,1).toLocaleDateString("es-MX",{month:"long",year:"numeric"});
+    return`<option value="${ym}">${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</option>`;
+  }).join("");
+}
+function renderDash(){
+  const ym=document.getElementById("dashMonth").value;if(!ym)return;
+  const[y,m]=ym.split("-").map(Number);
+  const filt=_dashAll.filter(c=>{
+    const p=(c.dateIn||"").split("/");
+    if(p.length<3)return false;
+    return +p[2].split(",")[0].trim()===y && +p[1]===m;
+  });
+  const income=filt.reduce((s,c)=>s+(parseFloat(c.price)||0),0);
+  document.getElementById("kTot").textContent=filt.length;
+  document.getElementById("kInc").textContent="$"+income.toLocaleString("es-MX",{maximumFractionDigits:0});
+  document.getElementById("kRep").textContent=filt.filter(c=>c.repaired).length;
+  document.getElementById("kDel").textContent=filt.filter(c=>c.delivered).length;
+  // Tipos
+  const tm={};
+  filt.forEach(c=>{(Array.isArray(c.repairTypes)?c.repairTypes:[c.repairType||""]).forEach(t=>{if(t){const k=t.startsWith("Otro:")?"Otro":t;tm[k]=(tm[k]||0)+1;}});});
+  const ts=Object.entries(tm).sort((a,b)=>b[1]-a[1]);
+  const mx=ts[0]?.[1]||1;
+  document.getElementById("dashChart").innerHTML=ts.length
+    ?ts.map(([t,n])=>`<div class="bar-row"><div class="bar-label" title="${t}">${t}</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(n/mx*100)}%"></div></div>
+        <div class="bar-count">${n}</div></div>`).join("")
+    :`<div style="color:var(--muted);font-size:0.8rem">Sin datos este mes</div>`;
+  // Marcas
+  const bm={};
+  filt.forEach(c=>{if(c.brand)bm[c.brand]=(bm[c.brand]||0)+1;});
+  const bs=Object.entries(bm).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const mb=bs[0]?.[1]||1;
+  document.getElementById("dashBrands").innerHTML=bs.length
+    ?bs.map(([b,n])=>`<div class="bar-row"><div class="bar-label" title="${b}">${b}</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(n/mb*100)}%;background:linear-gradient(90deg,#a78bfa,#7c3aed)"></div></div>
+        <div class="bar-count">${n}</div></div>`).join("")
+    :`<div style="color:var(--muted);font-size:0.8rem">Sin datos este mes</div>`;
 }
 
 // ── SERVICE WORKER PWA ──
