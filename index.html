@@ -1729,23 +1729,37 @@ async function printCardLabel(id){
 function doPrint(){
   const preview=document.getElementById("labelPreview").innerHTML;
   if(!preview||preview.trim()===""){toast("No hay etiqueta para imprimir","error");return;}
-  // Usar iframe oculto para imprimir sin popup
-  let ifr=document.getElementById("_printFrame");
-  if(!ifr){ifr=document.createElement("iframe");ifr.id="_printFrame";
-    ifr.style.cssText="position:fixed;left:-9999px;top:0;width:400px;height:600px;border:none;";
-    document.body.appendChild(ifr);}
+
   const content=`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
       body{background:#fff;padding:12px;font-family:'Inter',sans-serif;}
       @page{margin:4mm;size:auto;}
-    </style></head><body>${preview}</body></html>`;
-  ifr.onload=()=>{
-    try{ifr.contentWindow.focus();ifr.contentWindow.print();}
-    catch(e){toast("Error al imprimir: "+e.message,"error");}
+    </style>
+  </head><body>
+    ${preview}
+    <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const blob=new Blob([content],{type:"text/html;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+
+  let ifr=document.getElementById("_printFrame");
+  if(ifr)ifr.remove();
+  ifr=document.createElement("iframe");
+  ifr.id="_printFrame";
+  ifr.style.cssText="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:none;opacity:0;";
+  document.body.appendChild(ifr);
+
+  ifr.onload=function(){
+    try{
+      ifr.contentWindow.focus();
+      ifr.contentWindow.print();
+    }catch(e){}
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
   };
-  ifr.srcdoc=content;
+  ifr.src=url;
 }
 
 // ═══════ QR SCANNER ═══════
@@ -1787,17 +1801,21 @@ function closeQR(){
 function handleQRResult(raw){
   closeQR();
   // QR format: REF:123456|Name|Brand Model|Types|$Price
-  // Extract REF number
   let ref="";
   const refMatch=raw.match(/REF:(\d{6})/);
   if(refMatch)ref=refMatch[1];
-  else ref=raw.replace(/[^0-9]/g,"").slice(0,6);
+  else{const nums=raw.replace(/[^0-9]/g,"");if(nums.length>=6)ref=nums.slice(0,6);}
   if(ref){
+    // Buscar en todas las tabs
     const si=document.getElementById("sInp");
-    if(si){si.value=ref;doSearch(ref);}
-    toast("🔍 Buscando REF: "+ref,"success",2500);
+    if(si){si.value=ref;}
+    q=ref.toLowerCase();
+    document.getElementById("sClr").classList.add("on");
+    // Activar tab pendientes para ver todas
+    setTab("pending");
+    toast("📷 REF encontrada: "+ref,"success",2500);
   }else{
-    toast("QR no reconocido","error");
+    toast("QR no reconocido — intenta de nuevo","error");
   }
 }
 
