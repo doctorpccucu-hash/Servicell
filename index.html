@@ -149,9 +149,8 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
   border:1px solid rgba(16,185,129,0.4);border-radius:8px;padding:4px 10px;
   font-size:0.72rem;color:var(--grn);font-weight:600;margin-top:7px;}
 
-/* PICKUP LIMIT BADGES */
-.wbadge{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:4px 10px;
-  font-size:0.72rem;font-weight:600;margin-top:6px;}
+/* PICKUP BADGES */
+.wbadge{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:4px 10px;font-size:0.72rem;font-weight:600;margin-top:6px;}
 .wbadge.ok{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.4);color:var(--grn);}
 .wbadge.warn{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);color:var(--warn);}
 .wbadge.exp{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.4);color:var(--red);}
@@ -169,16 +168,27 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 .ss-opt{padding:10px 14px;font-size:0.85rem;cursor:pointer;color:var(--txt);
   border-bottom:1px solid var(--bdr);transition:background 0.1s;}
 .ss-opt:last-child{border-bottom:none;}
-.ss-opt:hover,.ss-opt.hi{background:rgba(0,212,255,0.08);color:var(--acc);}
+.ss-opt:hover{background:rgba(0,212,255,0.08);color:var(--acc);}
 .ss-opt.none{color:var(--muted);font-style:italic;cursor:default;}
+
+/* QR SCANNER */
+#qrModal{position:fixed;inset:0;z-index:600;background:rgba(6,11,24,0.97);
+  display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+#qrModal.on{display:flex;}
+#qrVideo{width:100%;max-width:340px;border-radius:14px;border:2px solid var(--acc);}
+.qr-frame{position:relative;width:100%;max-width:340px;}
+.qr-line{position:absolute;left:10%;right:10%;height:2px;background:var(--acc);
+  top:50%;animation:qrscan 1.8s ease-in-out infinite;}
+@keyframes qrscan{0%,100%{top:20%}50%{top:78%}}
+.qr-close{margin-top:18px;padding:12px 32px;background:var(--surf);color:var(--txt);
+  border:1px solid var(--bdr);border-radius:12px;font-size:0.95rem;cursor:pointer;}
 
 /* DASHBOARD */
 #mDash .modal{max-height:92vh;}
 .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
 .kpi{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;padding:13px;text-align:center;}
 .kpi-val{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.6rem;color:var(--acc);line-height:1;}
-.kpi-lbl{font-size:0.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace;
-  text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;}
+.kpi-lbl{font-size:0.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;}
 .kpi.grn .kpi-val{color:var(--grn);}
 .kpi.pur .kpi-val{color:#a78bfa;}
 .kpi.yel .kpi-val{color:var(--gold);}
@@ -372,6 +382,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
       <span style="color:var(--muted);font-size:15px;flex-shrink:0">🔍</span>
       <input type="text" id="sInp" placeholder="Buscar nombre, teléfono, ref…" oninput="doSearch(this.value)" autocomplete="off" spellcheck="false">
       <button class="sclr" id="sClr" onclick="clearSearch()">✕</button>
+      <button onclick="openQR()" style="background:none;border:none;cursor:pointer;color:var(--acc);font-size:18px;padding:0;flex-shrink:0" title="Escanear QR">📷</button>
     </div>
     <div class="scnt" id="sCnt"></div>
   </div>
@@ -498,7 +509,6 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 
     <div class="fg"><label class="lbl">Notas</label>
       <input class="inp" id="iNotes" type="text" placeholder="Ej: Trae cargador original…" autocomplete="off"></div>
-
     <div class="fg">
       <label class="lbl">⏳ Plazo límite para retirar</label>
       <select class="rsel" id="iPickupDays">
@@ -510,7 +520,6 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
       <div style="font-size:0.7rem;color:var(--warn);font-family:'JetBrains Mono',monospace;margin-top:5px;line-height:1.5">
         ⚠ Si no retira en el plazo el equipo será desarmado para recuperar repuestos.</div>
     </div>
-
     <button class="btn1" onclick="saveClient()">💾 Guardar Cliente</button>
     <button onclick="printLabel()" style="width:100%;padding:12px;margin-top:9px;
       background:rgba(0,212,255,0.1);color:var(--acc);
@@ -632,7 +641,19 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
   </div>
 </div>
 
-<!-- MODAL DASHBOARD -->
+<!-- QR SCANNER -->
+<div id="qrModal">
+  <div class="qr-frame">
+    <video id="qrVideo" autoplay playsinline muted></video>
+    <div class="qr-line"></div>
+  </div>
+  <div style="margin-top:12px;font-size:0.8rem;color:var(--muted);font-family:'JetBrains Mono',monospace">
+    Apunta la cámara al código QR de la etiqueta
+  </div>
+  <button class="qr-close" onclick="closeQR()">✕ Cancelar</button>
+</div>
+
+<!-- DASHBOARD -->
 <div class="mover" id="mDash">
   <div class="modal">
     <div class="mhdl"></div>
@@ -646,11 +667,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
     </div>
     <div class="chart-wrap">
       <div class="chart-title">🔧 Reparaciones por tipo</div>
-      <div id="dashChart"><div style="color:var(--muted);font-size:0.8rem">Cargando…</div></div>
+      <div id="dashChart"></div>
     </div>
     <div class="chart-wrap">
       <div class="chart-title">📱 Marcas más frecuentes</div>
-      <div id="dashBrands"><div style="color:var(--muted);font-size:0.8rem">Cargando…</div></div>
+      <div id="dashBrands"></div>
     </div>
     <button class="btn2" onclick="closeM('mDash')" style="margin-top:4px">Cerrar</button>
   </div>
@@ -1263,6 +1284,7 @@ function resetAdd(){
   _r("otroX", el=>el.style.display="none");
   document.getElementById("photoPrev").innerHTML="";
   document.getElementById("photoSt").textContent="";
+
   document.getElementById("refNum").textContent=genRef();
 }
 
@@ -1487,19 +1509,15 @@ const MODELS = {
     "Otro modelo"],
 };
 
-// ═══════════════════════════════════════
-//  SEARCHABLE SELECT — MARCA / MODELO
-// ═══════════════════════════════════════
+// ═══════ SEARCHABLE SELECT ═══════
 const BRAND_LIST=["Samsung","iPhone / Apple","Motorola","Xiaomi","Huawei","LG","Nokia","Sony","OPPO","Vivo","OnePlus","Realme","ZTE","Alcatel","Otro"];
 let _ssModelList=[];
-
 function ssBrandFilter(q){
   q=(q||"").toLowerCase();
-  const drop=document.getElementById("brandDrop");
-  if(!drop)return;
-  const filtered=BRAND_LIST.filter(b=>!q||b.toLowerCase().includes(q));
-  drop.innerHTML=filtered.length
-    ?filtered.map(b=>`<div class="ss-opt" onmousedown="selectBrand('${b.replace(/'/g,"\\'")}')">${b}</div>`).join("")
+  const drop=document.getElementById("brandDrop");if(!drop)return;
+  const list=BRAND_LIST.filter(b=>!q||b.toLowerCase().includes(q));
+  drop.innerHTML=list.length
+    ?list.map(b=>`<div class="ss-opt" onmousedown="selectBrand('${b.replace(/'/g,"\\'")}')">${b}</div>`).join("")
     :`<div class="ss-opt none">Sin resultados</div>`;
   drop.classList.add("on");
 }
@@ -1507,10 +1525,8 @@ function selectBrand(brand){
   document.getElementById("iBrand").value=brand;
   document.getElementById("iBrandSearch").value=brand;
   document.getElementById("brandDrop").classList.remove("on");
-  // Mostrar campo libre si es "Otro"
   const ob=document.getElementById("iBrandOther");
   if(ob)ob.style.display=brand==="Otro"?"block":"none";
-  // Cargar modelos
   const modelWrap=document.getElementById("modelWrap");
   const mo=document.getElementById("iModelOther");
   if(brand&&brand!=="Otro"&&MODELS[brand]){
@@ -1527,11 +1543,10 @@ function selectBrand(brand){
 }
 function ssModelFilter(q){
   q=(q||"").toLowerCase();
-  const drop=document.getElementById("modelDrop");
-  if(!drop)return;
-  const filtered=_ssModelList.filter(m=>!q||m.toLowerCase().includes(q));
-  drop.innerHTML=filtered.length
-    ?filtered.map(m=>`<div class="ss-opt" onmousedown="selectModel('${m.replace(/'/g,"\\'")}')">${m}</div>`).join("")
+  const drop=document.getElementById("modelDrop");if(!drop)return;
+  const list=_ssModelList.filter(m=>!q||m.toLowerCase().includes(q));
+  drop.innerHTML=list.length
+    ?list.map(m=>`<div class="ss-opt" onmousedown="selectModel('${m.replace(/'/g,"\\'")}')">${m}</div>`).join("")
     :`<div class="ss-opt none">Sin resultados</div>`;
   drop.classList.add("on");
 }
@@ -1542,11 +1557,9 @@ function selectModel(model){
   const mo=document.getElementById("iModelOther");
   if(mo)mo.style.display=model==="Otro modelo"?"block":"none";
 }
-// Cerrar dropdowns al hacer click fuera
 document.addEventListener("click",e=>{
-  if(!e.target.closest(".ss-wrap")){
+  if(!e.target.closest(".ss-wrap"))
     document.querySelectorAll(".ss-drop").forEach(d=>d.classList.remove("on"));
-  }
 });
 function checkOtherModel(){}
 
@@ -1618,8 +1631,8 @@ function getLabelData(){
   const shopP  = document.getElementById("shopPhone")?.textContent?.replace("📞 ","")?.trim()||"";
   const logoEl = document.getElementById("logoImg");
   const logo   = (logoEl && logoEl.style.display!=="none") ? logoEl.src : null;
-  const pd=parseInt(document.getElementById("iPickupDays")?.value||"60");
-  const pickupDeadline=pd>0?(Date.now()+pd*86400000):0;
+  const _pd=parseInt(document.getElementById("iPickupDays")?.value||"60");
+  const pickupDeadline=_pd>0?(Date.now()+_pd*86400000):0;
   return {ref,name,phone,brand,model,price,notes,types,shopN,shopT,shopP,logo,date:fecha(),pickupDeadline};
 }
 
@@ -1632,11 +1645,12 @@ function buildLabelHTML(d){
         border-radius:5px;font-size:0.68rem;color:#7a4f00;font-weight:600">
         ⏳ Retirar antes del: <strong>${new Date(d.pickupDeadline).toLocaleDateString("es-MX")}</strong><br>
         <span style="font-weight:400">Pasado este plazo el equipo será desarmado para recuperar repuestos.</span>
-      </div>`:"";
+      </div>`:""
   return `
   <div style="width:100%;max-width:320px;margin:0 auto;font-family:'Inter',sans-serif;
     background:#fff;color:#111;border:2px solid #000;border-radius:8px;padding:14px;
     box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+    <!-- Header taller: logo + nombre negocio + propietario -->
     <div style="display:flex;align-items:center;gap:10px;border-bottom:1.5px solid #000;
       padding-bottom:8px;margin-bottom:10px">
       ${d.logo?`<img src="${d.logo}" style="width:44px;height:44px;object-fit:cover;
@@ -1649,10 +1663,12 @@ function buildLabelHTML(d){
         ${d.shopP?`<div style="font-size:0.7rem;color:#666">${d.shopP}</div>`:""}
       </div>
     </div>
+    <!-- REF grande -->
     <div style="text-align:center;margin-bottom:10px">
       <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:#666">N° de Referencia</div>
       <div style="font-size:2rem;font-weight:900;letter-spacing:0.15em;color:#000;line-height:1">${d.ref}</div>
     </div>
+    <!-- Info + QR -->
     <div style="display:flex;gap:10px;align-items:flex-start">
       <div style="flex:1;min-width:0">
         ${d.name?`<div style="font-weight:700;font-size:0.9rem;margin-bottom:2px">${d.name}</div>`:""}
@@ -1662,12 +1678,14 @@ function buildLabelHTML(d){
         ${d.price?`<div style="font-size:0.95rem;font-weight:800;color:#000;margin-top:4px">$ ${parseFloat(d.price).toFixed(2)}</div>`:""}
         ${d.notes?`<div style="font-size:0.68rem;color:#666;margin-top:4px;font-style:italic">${d.notes.substring(0,60)}${d.notes.length>60?"…":""}</div>`:""}
       </div>
+      <!-- QR -->
       <div style="flex-shrink:0;text-align:center">
         <img src="${qrUrl}" width="90" height="90" style="border:1px solid #ddd;border-radius:4px;display:block">
         <div style="font-size:0.58rem;color:#888;margin-top:2px">Escanear</div>
       </div>
     </div>
     ${pickupLine}
+    <!-- Footer fecha -->
     <div style="border-top:1px solid #ccc;margin-top:10px;padding-top:6px;
       font-size:0.65rem;color:#888;text-align:right">${d.date}</div>
   </div>`;
@@ -1711,45 +1729,79 @@ async function printCardLabel(id){
 function doPrint(){
   const preview=document.getElementById("labelPreview").innerHTML;
   if(!preview||preview.trim()===""){toast("No hay etiqueta para imprimir","error");return;}
+  // Usar iframe oculto para imprimir sin popup
+  let ifr=document.getElementById("_printFrame");
+  if(!ifr){ifr=document.createElement("iframe");ifr.id="_printFrame";
+    ifr.style.cssText="position:fixed;left:-9999px;top:0;width:400px;height:600px;border:none;";
+    document.body.appendChild(ifr);}
   const content=`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width">
-    <title>Etiqueta Servicell</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <style>*{margin:0;padding:0;box-sizing:border-box;}
-    body{background:#fff;display:flex;flex-direction:column;align-items:center;
-      justify-content:center;min-height:100vh;padding:12px;font-family:'Inter',sans-serif;}
-    .np{margin-top:18px;text-align:center;}
-    @media print{.np{display:none!important;}@page{margin:4mm;size:auto;}}
-    </style></head><body>
-    ${preview}
-    <div class="np">
-      <button onclick="window.print()" style="padding:12px 28px;background:#000;color:#fff;
-        border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;margin-right:8px">
-        🖨️ Imprimir</button>
-      <button onclick="window.close()" style="padding:12px 20px;background:#eee;color:#333;
-        border:none;border-radius:8px;font-size:1rem;cursor:pointer">Cerrar</button>
-      <p style="margin-top:10px;font-size:0.75rem;color:#888">
-        Para impresora de etiquetas: selecciona tu impresora WiFi y ajusta el tamaño de página.
-      </p>
-    </div>
-  </body></html>`;
-  const win=window.open("","_blank","width=440,height=600");
-  if(win){
-    win.document.open();win.document.write(content);win.document.close();
-    setTimeout(()=>{try{win.focus();}catch(e){}},300);
+    <meta charset="UTF-8">
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{background:#fff;padding:12px;font-family:'Inter',sans-serif;}
+      @page{margin:4mm;size:auto;}
+    </style></head><body>${preview}</body></html>`;
+  ifr.onload=()=>{
+    try{ifr.contentWindow.focus();ifr.contentWindow.print();}
+    catch(e){toast("Error al imprimir: "+e.message,"error");}
+  };
+  ifr.srcdoc=content;
+}
+
+// ═══════ QR SCANNER ═══════
+let _qrStream=null,_qrTimer=null;
+function openQR(){
+  const modal=document.getElementById("qrModal");
+  const video=document.getElementById("qrVideo");
+  modal.classList.add("on");
+  navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
+    .then(stream=>{
+      _qrStream=stream;video.srcObject=stream;
+      // Poll using BarcodeDetector if available
+      if("BarcodeDetector" in window){
+        const bd=new BarcodeDetector({formats:["qr_code"]});
+        _qrTimer=setInterval(async()=>{
+          try{
+            const codes=await bd.detect(video);
+            if(codes.length>0){handleQRResult(codes[0].rawValue);}
+          }catch(e){}
+        },400);
+      }else{
+        // Fallback: show manual entry
+        toast("Escáner no disponible en este navegador. Ingresa la ref manualmente.","info",4000);
+      }
+    })
+    .catch(e=>{
+      toast("Sin acceso a la cámara: "+e.message,"error",3500);
+      modal.classList.remove("on");
+    });
+}
+function closeQR(){
+  const modal=document.getElementById("qrModal");
+  modal.classList.remove("on");
+  if(_qrTimer){clearInterval(_qrTimer);_qrTimer=null;}
+  if(_qrStream){_qrStream.getTracks().forEach(t=>t.stop());_qrStream=null;}
+  const video=document.getElementById("qrVideo");
+  if(video)video.srcObject=null;
+}
+function handleQRResult(raw){
+  closeQR();
+  // QR format: REF:123456|Name|Brand Model|Types|$Price
+  // Extract REF number
+  let ref="";
+  const refMatch=raw.match(/REF:(\d{6})/);
+  if(refMatch)ref=refMatch[1];
+  else ref=raw.replace(/[^0-9]/g,"").slice(0,6);
+  if(ref){
+    const si=document.getElementById("sInp");
+    if(si){si.value=ref;doSearch(ref);}
+    toast("🔍 Buscando REF: "+ref,"success",2500);
   }else{
-    const blob=new Blob([content],{type:"text/html"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),5000);
-    toast("Permite ventanas emergentes si no se abrió","info",4000);
+    toast("QR no reconocido","error");
   }
 }
 
-// ═══════════════════════════════════════
-//  DASHBOARD
-// ═══════════════════════════════════════
+// ═══════ DASHBOARD ═══════
 let _dashAll=[];
 function openDash(){
   if(me?.role!=="admin"){toast("Solo el admin","error");return;}
@@ -1791,9 +1843,10 @@ function renderDash(){
   document.getElementById("kInc").textContent="$"+income.toLocaleString("es-MX",{maximumFractionDigits:0});
   document.getElementById("kRep").textContent=filt.filter(c=>c.repaired).length;
   document.getElementById("kDel").textContent=filt.filter(c=>c.delivered).length;
-  // Tipos
   const tm={};
-  filt.forEach(c=>{(Array.isArray(c.repairTypes)?c.repairTypes:[c.repairType||""]).forEach(t=>{if(t){const k=t.startsWith("Otro:")?"Otro":t;tm[k]=(tm[k]||0)+1;}});});
+  filt.forEach(c=>{(Array.isArray(c.repairTypes)?c.repairTypes:[c.repairType||""]).forEach(t=>{
+    if(t){const k=t.startsWith("Otro:")?"Otro":t;tm[k]=(tm[k]||0)+1;}
+  });});
   const ts=Object.entries(tm).sort((a,b)=>b[1]-a[1]);
   const mx=ts[0]?.[1]||1;
   document.getElementById("dashChart").innerHTML=ts.length
@@ -1801,7 +1854,6 @@ function renderDash(){
         <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(n/mx*100)}%"></div></div>
         <div class="bar-count">${n}</div></div>`).join("")
     :`<div style="color:var(--muted);font-size:0.8rem">Sin datos este mes</div>`;
-  // Marcas
   const bm={};
   filt.forEach(c=>{if(c.brand)bm[c.brand]=(bm[c.brand]||0)+1;});
   const bs=Object.entries(bm).sort((a,b)=>b[1]-a[1]).slice(0,8);
