@@ -645,12 +645,22 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 <div id="qrModal">
   <div class="qr-frame">
     <video id="qrVideo" autoplay playsinline muted></video>
-    <div class="qr-line"></div>
+    <div class="qr-line" id="qrLine"></div>
+    <canvas id="qrCanvas" style="display:none"></canvas>
   </div>
-  <div style="margin-top:12px;font-size:0.8rem;color:var(--muted);font-family:'JetBrains Mono',monospace">
+  <!-- imagen seleccionada de galería -->
+  <img id="qrImgPrev" style="display:none;max-width:320px;max-height:240px;border-radius:12px;border:2px solid var(--acc);margin-top:10px;object-fit:contain" alt="">
+  <div id="qrStatus" style="margin-top:10px;font-size:0.8rem;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:center">
     Apunta la cámara al código QR de la etiqueta
   </div>
-  <button class="qr-close" onclick="closeQR()">✕ Cancelar</button>
+  <div style="display:flex;gap:10px;margin-top:14px">
+    <button onclick="closeQR()" style="flex:1;padding:12px;background:var(--surf);color:var(--txt);
+      border:1px solid var(--bdr);border-radius:12px;font-size:0.9rem;cursor:pointer">✕ Cancelar</button>
+    <button onclick="document.getElementById('qrFileIn').click()" style="flex:1;padding:12px;
+      background:rgba(0,212,255,0.12);color:var(--acc);border:1px solid var(--acc);
+      border-radius:12px;font-size:0.9rem;cursor:pointer;font-weight:600">🖼 Galería</button>
+  </div>
+  <input type="file" id="qrFileIn" accept="image/*" style="display:none" onchange="scanImageFile(this)">
 </div>
 
 <!-- DASHBOARD -->
@@ -1729,89 +1739,143 @@ async function printCardLabel(id){
 function doPrint(){
   const preview=document.getElementById("labelPreview").innerHTML;
   if(!preview||preview.trim()===""){toast("No hay etiqueta para imprimir","error");return;}
-
+  // Usar iframe oculto para imprimir sin popup
+  let ifr=document.getElementById("_printFrame");
+  if(!ifr){ifr=document.createElement("iframe");ifr.id="_printFrame";
+    ifr.style.cssText="position:fixed;left:-9999px;top:0;width:400px;height:600px;border:none;";
+    document.body.appendChild(ifr);}
   const content=`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
       body{background:#fff;padding:12px;font-family:'Inter',sans-serif;}
       @page{margin:4mm;size:auto;}
-    </style>
-  </head><body>
-    ${preview}
-    <script>window.onload=function(){window.print();}<\/script>
-  </body></html>`;
-
-  const blob=new Blob([content],{type:"text/html;charset=utf-8"});
-  const url=URL.createObjectURL(blob);
-
-  let ifr=document.getElementById("_printFrame");
-  if(ifr)ifr.remove();
-  ifr=document.createElement("iframe");
-  ifr.id="_printFrame";
-  ifr.style.cssText="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:none;opacity:0;";
-  document.body.appendChild(ifr);
-
-  ifr.onload=function(){
-    try{
-      ifr.contentWindow.focus();
-      ifr.contentWindow.print();
-    }catch(e){}
-    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    </style></head><body>${preview}</body></html>`;
+  ifr.onload=()=>{
+    try{ifr.contentWindow.focus();ifr.contentWindow.print();}
+    catch(e){toast("Error al imprimir: "+e.message,"error");}
   };
-  ifr.src=url;
+  ifr.srcdoc=content;
 }
 
 // ═══════ QR SCANNER ═══════
 let _qrStream=null,_qrTimer=null;
+// ─── QR helpers ───
+function _qrSetStatus(msg){const el=document.getElementById("qrStatus");if(el)el.textContent=msg;}
+
 function openQR(){
   const modal=document.getElementById("qrModal");
   const video=document.getElementById("qrVideo");
+  const img=document.getElementById("qrImgPrev");
+  const line=document.getElementById("qrLine");
+  // Reset state
+  if(img){img.style.display="none";img.src="";}
+  if(line)line.style.display="block";
+  video.style.display="block";
+  _qrSetStatus("Apunta la cámara al código QR de la etiqueta");
   modal.classList.add("on");
   navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
     .then(stream=>{
       _qrStream=stream;video.srcObject=stream;
-      // Poll using BarcodeDetector if available
       if("BarcodeDetector" in window){
         const bd=new BarcodeDetector({formats:["qr_code"]});
         _qrTimer=setInterval(async()=>{
-          try{
-            const codes=await bd.detect(video);
-            if(codes.length>0){handleQRResult(codes[0].rawValue);}
-          }catch(e){}
+          try{const codes=await bd.detect(video);if(codes.length>0)handleQRResult(codes[0].rawValue);}
+          catch(e){}
         },400);
       }else{
-        // Fallback: show manual entry
-        toast("Escáner no disponible en este navegador. Ingresa la ref manualmente.","info",4000);
+        _qrSetStatus("Cámara activa — o usa 🖼 Galería para seleccionar una imagen");
       }
     })
     .catch(e=>{
-      toast("Sin acceso a la cámara: "+e.message,"error",3500);
-      modal.classList.remove("on");
+      video.style.display="none";
+      if(line)line.style.display="none";
+      _qrSetStatus("Sin acceso a cámara — usa 🖼 Galería para escanear una imagen guardada");
     });
 }
+
 function closeQR(){
-  const modal=document.getElementById("qrModal");
-  modal.classList.remove("on");
+  document.getElementById("qrModal").classList.remove("on");
   if(_qrTimer){clearInterval(_qrTimer);_qrTimer=null;}
   if(_qrStream){_qrStream.getTracks().forEach(t=>t.stop());_qrStream=null;}
   const video=document.getElementById("qrVideo");
   if(video)video.srcObject=null;
+  const fi=document.getElementById("qrFileIn");
+  if(fi)fi.value="";
 }
+
+async function scanImageFile(input){
+  const file=input.files[0];if(!file)return;
+  _qrSetStatus("⏳ Analizando imagen…");
+
+  // Show preview
+  const imgPrev=document.getElementById("qrImgPrev");
+  const video=document.getElementById("qrVideo");
+  const line=document.getElementById("qrLine");
+  const objectUrl=URL.createObjectURL(file);
+  if(imgPrev){imgPrev.src=objectUrl;imgPrev.style.display="block";}
+  if(video)video.style.display="none";
+  if(line)line.style.display="none";
+
+  try{
+    if("BarcodeDetector" in window){
+      // Use native BarcodeDetector on the image element
+      const img=new Image();
+      img.src=objectUrl;
+      await new Promise(r=>img.onload=r);
+      const bd=new BarcodeDetector({formats:["qr_code","aztec","data_matrix","code_128","code_39","ean_13","ean_8","upc_a","upc_e"]});
+      const codes=await bd.detect(img);
+      if(codes.length>0){
+        URL.revokeObjectURL(objectUrl);
+        handleQRResult(codes[0].rawValue);
+        return;
+      }
+    }
+
+    // Fallback: draw to canvas and use jsQR via CDN
+    const img=new Image();
+    img.src=objectUrl;
+    await new Promise(r=>img.onload=r);
+    const canvas=document.getElementById("qrCanvas");
+    canvas.width=img.naturalWidth;
+    canvas.height=img.naturalHeight;
+    const ctx=canvas.getContext("2d");
+    ctx.drawImage(img,0,0);
+    const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+
+    // Load jsQR dynamically
+    if(!window.jsQR){
+      await new Promise((res,rej)=>{
+        const s=document.createElement("script");
+        s.src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+    const code=jsQR(imageData.data,canvas.width,canvas.height);
+    URL.revokeObjectURL(objectUrl);
+    if(code){
+      handleQRResult(code.data);
+    }else{
+      _qrSetStatus("❌ No se encontró un QR en la imagen — intenta con otra foto");
+    }
+  }catch(e){
+    URL.revokeObjectURL(objectUrl);
+    _qrSetStatus("❌ Error al leer la imagen: "+e.message);
+  }
+}
+
 function handleQRResult(raw){
   closeQR();
-  // QR format: REF:123456|Name|Brand Model|Types|$Price
   let ref="";
   const refMatch=raw.match(/REF:(\d{6})/);
   if(refMatch)ref=refMatch[1];
   else{const nums=raw.replace(/[^0-9]/g,"");if(nums.length>=6)ref=nums.slice(0,6);}
   if(ref){
-    // Buscar en todas las tabs
     const si=document.getElementById("sInp");
-    if(si){si.value=ref;}
+    if(si)si.value=ref;
     q=ref.toLowerCase();
     document.getElementById("sClr").classList.add("on");
-    // Activar tab pendientes para ver todas
     setTab("pending");
     toast("📷 REF encontrada: "+ref,"success",2500);
   }else{
