@@ -672,7 +672,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
     <select class="month-sel" id="dashMonth" onchange="renderDash()"></select>
     <div class="dash-grid">
       <div class="kpi"><div class="kpi-val" id="kTot">—</div><div class="kpi-lbl">Registros</div></div>
-      <div class="kpi grn"><div class="kpi-val" id="kInc">—</div><div class="kpi-lbl">Ingresos L</div></div>
+      <div class="kpi grn"><div class="kpi-val" id="kInc">—</div><div class="kpi-lbl">Ingresos $</div></div>
       <div class="kpi pur"><div class="kpi-val" id="kRep">—</div><div class="kpi-lbl">Reparados</div></div>
       <div class="kpi yel"><div class="kpi-val" id="kDel">—</div><div class="kpi-lbl">Entregados</div></div>
     </div>
@@ -1033,7 +1033,7 @@ function renderCards(all){
       <div class="trow">
         <span class="tag ref">REF ${esc(c.ref||"------")}</span>
         ${typeTags}
-        ${c.price?`<span class="tag g">L ${esc(c.price)}</span>`:""}
+        ${c.price?`<span class="tag g">$ ${esc(c.price)}</span>`:""}
       </div>
       ${c.notes?`<div class="cnotes">"${esc(c.notes)}"</div>`:""}
       ${repCheck}
@@ -1648,12 +1648,12 @@ function getLabelData(){
   const logo   = (logoEl && logoEl.style.display!=="none") ? logoEl.src : null;
   const _pd=parseInt(document.getElementById("iPickupDays")?.value||"60");
   const pickupDeadline=_pd>0?(Date.now()+_pd*86400000):0;
-  return {ref,name,phone,brand,model,price,notes,types,shopN,shopT,shopP,logo,date:fecha(),pickupDeadline};
+  return {ref,name,phone,brand,model,price,notes,types,shopN,shopT,shopP,logo,date:fecha(),pickupDeadline,evidences:[...photos].slice(0,4)};
 }
 
 function buildLabelHTML(d){
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
-    `REF:${d.ref}|${d.name}|${d.brand} ${d.model}|${d.types.join(",")}|L${d.price}`
+    `REF:${d.ref}|${d.name}|${d.brand} ${d.model}|${d.types.join(",")}|$${d.price}`
   )}`;
   const pickupLine=d.pickupDeadline>0
     ?`<div style="margin-top:8px;padding:6px 8px;background:#fff3cd;border:1px solid #f0a500;
@@ -1690,7 +1690,7 @@ function buildLabelHTML(d){
         ${d.phone?`<div style="font-size:0.75rem;color:#555;margin-bottom:4px">📞 ${d.phone}</div>`:""}
         ${(d.brand||d.model)?`<div style="font-size:0.78rem;font-weight:600;margin-bottom:3px">📱 ${[d.brand,d.model].filter(Boolean).join(" ")}</div>`:""}
         ${d.types.length?`<div style="font-size:0.72rem;margin-bottom:3px">🔧 ${d.types.join(" · ")}</div>`:""}
-        ${d.price?`<div style="font-size:0.95rem;font-weight:800;color:#000;margin-top:4px">L ${parseFloat(d.price).toFixed(2)}</div>`:""}
+        ${d.price?`<div style="font-size:0.95rem;font-weight:800;color:#000;margin-top:4px">$ ${parseFloat(d.price).toFixed(2)}</div>`:""}
         ${d.notes?`<div style="font-size:0.68rem;color:#666;margin-top:4px;font-style:italic">${d.notes.substring(0,60)}${d.notes.length>60?"…":""}</div>`:""}
       </div>
       <!-- QR -->
@@ -1700,6 +1700,18 @@ function buildLabelHTML(d){
       </div>
     </div>
     ${pickupLine}
+    ${d.evidences&&d.evidences.length?`
+    <div style="margin-top:8px;border-top:1px solid #eee;padding-top:8px">
+      <div style="font-size:0.6rem;color:#888;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">
+        Fotos del equipo
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        ${d.evidences.map(url=>`
+          <img src="${url}" style="width:60px;height:60px;object-fit:cover;
+            border-radius:5px;border:1px solid #ddd;flex-shrink:0">
+        `).join("")}
+      </div>
+    </div>`:""}
     <!-- Footer fecha -->
     <div style="border-top:1px solid #ccc;margin-top:10px;padding-top:6px;
       font-size:0.65rem;color:#888;text-align:right">${d.date}</div>
@@ -1733,7 +1745,8 @@ async function printCardLabel(id, autoPrint=false){
       shopP:  document.getElementById("shopPhone")?.textContent?.replace("📞 ","")?.trim()||"",
       logo:   (()=>{const l=document.getElementById("logoImg");return l&&l.style.display!=="none"?l.src:null;})(),
       date:   c.dateIn||fecha(),
-      pickupDeadline: c.pickupDeadline||0
+      pickupDeadline: c.pickupDeadline||0,
+      evidences: Array.isArray(c.evidences)?c.evidences.slice(0,4):[]
     };
     document.getElementById("labelPreview").innerHTML = buildLabelHTML(d);
     openM("mLabel");
@@ -1884,7 +1897,7 @@ function renderDash(){
   });
   const income=filt.reduce((s,c)=>s+(parseFloat(c.price)||0),0);
   document.getElementById("kTot").textContent=filt.length;
-  document.getElementById("kInc").textContent="L "+income.toLocaleString("es-MX",{maximumFractionDigits:0});
+  document.getElementById("kInc").textContent="$"+income.toLocaleString("es-MX",{maximumFractionDigits:0});
   document.getElementById("kRep").textContent=filt.filter(c=>c.repaired).length;
   document.getElementById("kDel").textContent=filt.filter(c=>c.delivered).length;
   const tm={};
