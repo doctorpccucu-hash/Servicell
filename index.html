@@ -520,7 +520,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
       <div style="font-size:0.7rem;color:var(--warn);font-family:'JetBrains Mono',monospace;margin-top:5px;line-height:1.5">
         ⚠ Si no retira en el plazo el equipo será desarmado para recuperar repuestos.</div>
     </div>
-    <button class="btn1" onclick="saveClient()">💾 Guardar Cliente</button>
+    <button class="btn1" onclick="saveClient()">💾 Guardar e Imprimir Etiqueta</button>
     <button onclick="printLabel()" style="width:100%;padding:12px;margin-top:9px;
       background:rgba(0,212,255,0.1);color:var(--acc);
       border:1px solid rgba(0,212,255,0.3);border-radius:12px;
@@ -1076,7 +1076,7 @@ async function saveClient(){
     const ref=genRef();
     const pickupDays=parseInt(document.getElementById("iPickupDays")?.value||"60");
     const pickupDeadline=pickupDays>0?(Date.now()+pickupDays*86400000):0;
-    await db.collection("clients").add({
+    const docRef=await db.collection("clients").add({
       ref,name,phone,notes,brand,model,
       price:price?parseFloat(price).toFixed(2):"",
       repairTypes:finalTypes,
@@ -1089,6 +1089,8 @@ async function saveClient(){
     });
     closeM("mAdd");
     toast(`✅ ${name} — Ref. ${ref}`,"success",3500);
+    // Abrir etiqueta con la ref real e imprimir automáticamente
+    await printCardLabel(docRef.id, true);
   }catch(e){toast("Error: "+e.message,"error");}
   finally{spin(false);}
 }
@@ -1711,7 +1713,7 @@ function printLabel(){
   openM("mLabel");
 }
 
-async function printCardLabel(id){
+async function printCardLabel(id, autoPrint=false){
   spin(true,"Preparando etiqueta…");
   try{
     const snap = await db.collection("clients").doc(id).get();
@@ -1735,6 +1737,10 @@ async function printCardLabel(id){
     };
     document.getElementById("labelPreview").innerHTML = buildLabelHTML(d);
     openM("mLabel");
+    // Si se llamó desde saveClient, imprimir automáticamente después de que el modal cargue
+    if(autoPrint){
+      setTimeout(()=>doPrint(), 500);
+    }
   }catch(e){ toast("Error: "+e.message,"error"); }
   finally{ spin(false); }
 }
