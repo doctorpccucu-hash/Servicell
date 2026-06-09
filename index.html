@@ -656,12 +656,27 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 <div id="qrModal">
   <div class="qr-frame">
     <video id="qrVideo" autoplay playsinline muted></video>
-    <div class="qr-line"></div>
+    <div class="qr-line" id="qrLine"></div>
+    <canvas id="qrCanvas" style="display:none"></canvas>
   </div>
-  <div style="margin-top:12px;font-size:0.8rem;color:var(--muted);font-family:'JetBrains Mono',monospace">
-    Apunta la cámara al código QR de la etiqueta
+  <img id="qrImgPrev" style="display:none;max-width:320px;max-height:220px;border-radius:12px;
+    border:2px solid var(--acc);margin-top:10px;object-fit:contain" alt="">
+  <div id="qrStatus" style="margin-top:10px;font-size:0.8rem;color:var(--muted);
+    font-family:'JetBrains Mono',monospace;text-align:center">
+    Apunta la cámara al QR — o usa 🖼 Galería
   </div>
-  <button class="qr-close" onclick="closeQR()">✕ Cancelar</button>
+  <div style="display:flex;gap:10px;margin-top:14px;width:100%;max-width:340px">
+    <button onclick="closeQR()" style="flex:1;padding:13px;background:var(--surf);color:var(--txt);
+      border:1px solid var(--bdr);border-radius:12px;font-size:0.9rem;cursor:pointer">
+      ✕ Cancelar
+    </button>
+    <button onclick="document.getElementById('qrFileIn').click()" style="flex:1;padding:13px;
+      background:rgba(0,212,255,0.12);color:var(--acc);border:1px solid var(--acc);
+      border-radius:12px;font-size:0.9rem;cursor:pointer;font-weight:700">
+      🖼 Galería
+    </button>
+  </div>
+  <input type="file" id="qrFileIn" accept="image/*" style="display:none" onchange="scanImageFile(this)">
 </div>
 
 <!-- DASHBOARD -->
@@ -1794,39 +1809,87 @@ function doPrint(){
 
 // ═══════ QR SCANNER ═══════
 let _qrStream=null,_qrTimer=null;
+function _qrSetStatus(msg){const el=document.getElementById("qrStatus");if(el)el.textContent=msg;}
+
 function openQR(){
   const modal=document.getElementById("qrModal");
   const video=document.getElementById("qrVideo");
+  const imgPrev=document.getElementById("qrImgPrev");
+  const line=document.getElementById("qrLine");
+  // reset
+  if(imgPrev){imgPrev.style.display="none";imgPrev.src="";}
+  if(line)line.style.display="block";
+  video.style.display="block";
+  const fi=document.getElementById("qrFileIn");if(fi)fi.value="";
+  _qrSetStatus("Apunta la cámara al QR — o usa 🖼 Galería");
   modal.classList.add("on");
   navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
     .then(stream=>{
       _qrStream=stream;video.srcObject=stream;
-      // Poll using BarcodeDetector if available
       if("BarcodeDetector" in window){
         const bd=new BarcodeDetector({formats:["qr_code"]});
         _qrTimer=setInterval(async()=>{
-          try{
-            const codes=await bd.detect(video);
-            if(codes.length>0){handleQRResult(codes[0].rawValue);}
-          }catch(e){}
+          try{const codes=await bd.detect(video);if(codes.length>0)handleQRResult(codes[0].rawValue);}
+          catch(e){}
         },400);
-      }else{
-        // Fallback: show manual entry
-        toast("Escáner no disponible en este navegador. Ingresa la ref manualmente.","info",4000);
       }
     })
-    .catch(e=>{
-      toast("Sin acceso a la cámara: "+e.message,"error",3500);
-      modal.classList.remove("on");
+    .catch(()=>{
+      video.style.display="none";
+      if(line)line.style.display="none";
+      _qrSetStatus("Sin cámara disponible — usa 🖼 Galería para escanear una imagen");
     });
 }
+
 function closeQR(){
-  const modal=document.getElementById("qrModal");
-  modal.classList.remove("on");
+  document.getElementById("qrModal").classList.remove("on");
   if(_qrTimer){clearInterval(_qrTimer);_qrTimer=null;}
   if(_qrStream){_qrStream.getTracks().forEach(t=>t.stop());_qrStream=null;}
+  const video=document.getElementById("qrVideo");if(video)video.srcObject=null;
+  const fi=document.getElementById("qrFileIn");if(fi)fi.value="";
+}
+
+async function scanImageFile(input){
+  const file=input.files[0];if(!file)return;
+  _qrSetStatus("⏳ Analizando imagen…");
+  const imgPrev=document.getElementById("qrImgPrev");
   const video=document.getElementById("qrVideo");
-  if(video)video.srcObject=null;
+  const line=document.getElementById("qrLine");
+  const objectUrl=URL.createObjectURL(file);
+  if(imgPrev){imgPrev.src=objectUrl;imgPrev.style.display="block";}
+  if(video)video.style.display="none";
+  if(line)line.style.display="none";
+  try{
+    const img=new Image();img.src=objectUrl;
+    await new Promise(r=>{img.onload=r;img.onerror=r;});
+    // Intento 1: BarcodeDetector nativo
+    if("BarcodeDetector" in window){
+      try{
+        const bd=new BarcodeDetector({formats:["qr_code"]});
+        const codes=await bd.detect(img);
+        if(codes.length>0){URL.revokeObjectURL(objectUrl);handleQRResult(codes[0].rawValue);return;}
+      }catch(e){}
+    }
+    // Intento 2: jsQR via canvas
+    const canvas=document.getElementById("qrCanvas");
+    canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+    const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0);
+    const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+    if(!window.jsQR){
+      await new Promise((res,rej)=>{
+        const s=document.createElement("script");
+        s.src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
+        s.onload=res;s.onerror=rej;document.head.appendChild(s);
+      });
+    }
+    URL.revokeObjectURL(objectUrl);
+    const code=jsQR(imageData.data,canvas.width,canvas.height);
+    if(code){handleQRResult(code.data);}
+    else{_qrSetStatus("❌ No se encontró QR en la imagen — intenta con otra foto");}
+  }catch(e){
+    URL.revokeObjectURL(objectUrl);
+    _qrSetStatus("❌ Error al leer imagen: "+e.message);
+  }
 }
 function handleQRResult(raw){
   closeQR();
