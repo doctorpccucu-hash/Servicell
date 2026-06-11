@@ -541,7 +541,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
       color:#111;font-family:'Inter',sans-serif">
       <!-- generado por JS -->
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       <label style="font-size:0.8rem;color:var(--muted);white-space:nowrap">Copias:</label>
       <select id="_printCopies" style="flex:1;background:var(--surf);border:1px solid var(--bdr);
         border-radius:8px;padding:8px 12px;color:var(--txt);font-size:0.9rem;outline:none;
@@ -550,6 +550,20 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         <option value="2" selected>2 copias (por defecto)</option>
         <option value="3">3 copias</option>
         <option value="4">4 copias</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <label style="font-size:0.8rem;color:var(--muted);white-space:nowrap">Tamaño:</label>
+      <select id="_printSize" style="flex:1;background:var(--surf);border:1px solid var(--bdr);
+        border-radius:8px;padding:8px 12px;color:var(--txt);font-size:0.9rem;outline:none;
+        -webkit-appearance:none;appearance:none">
+        <option value="auto">Auto (tamaño real)</option>
+        <option value="62mm 100mm">Etiqueta 62×100mm</option>
+        <option value="62mm 29mm">Etiqueta 62×29mm</option>
+        <option value="100mm 150mm">Etiqueta 100×150mm</option>
+        <option value="A6">Hoja A6 (105×148mm)</option>
+        <option value="A5">Hoja A5 (148×210mm)</option>
+        <option value="letter">Carta (216×279mm)</option>
       </select>
     </div>
     <button class="btn1" onclick="doPrint()" style="margin-bottom:9px">
@@ -1700,18 +1714,6 @@ function buildLabelHTML(d){
       </div>
     </div>
     ${pickupLine}
-    ${d.evidences&&d.evidences.length?`
-    <div style="margin-top:8px;border-top:1px solid #eee;padding-top:8px">
-      <div style="font-size:0.6rem;color:#888;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">
-        Fotos del equipo
-      </div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        ${d.evidences.map(url=>`
-          <img src="${url}" style="width:60px;height:60px;object-fit:cover;
-            border-radius:5px;border:1px solid #ddd;flex-shrink:0">
-        `).join("")}
-      </div>
-    </div>`:""}
     <!-- Footer fecha -->
     <div style="border-top:1px solid #ccc;margin-top:10px;padding-top:6px;
       font-size:0.65rem;color:#888;text-align:right">${d.date}</div>
@@ -1772,13 +1774,14 @@ function doPrint(){
     </div>`;
   }
 
+  const pageSize=document.getElementById("_printSize")?.value||"auto";
   const content=`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
       body{background:#fff;font-family:'Inter',sans-serif;}
-      .lbl-copy{padding:12px;}
-      @page{margin:4mm;size:auto;}
+      .lbl-copy{padding:6px;}
+      @page{margin:2mm;size:${pageSize};}
       @media print{.lbl-copy{page-break-after:always;}}
       .lbl-copy:last-child{page-break-after:avoid!important;}
     </style>
