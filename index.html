@@ -14,7 +14,9 @@
 <link rel="icon" type="image/png" href="icon-512.png">
 <title>Servicell</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --bg:#060b18;--card:#0d1528;--surf:#111c35;
@@ -703,9 +705,6 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 // ═══════════════════════════════════════
 //  FIREBASE
@@ -721,6 +720,8 @@ const fbCfg = {
 firebase.initializeApp(fbCfg);
 const auth = firebase.auth();
 const db   = firebase.firestore();
+// Forzar persistencia de sesión
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
 
 // ═══════════════════════════════════════
 //  STATE
@@ -1802,7 +1803,7 @@ function doPrint(){
   const copies=parseInt(document.getElementById("_printCopies")?.value||"2");
   const sizeKey=document.getElementById("_printSize")?.value||"58x40";
 
-  // Rebuild label with selected size for printing
+  // Rebuild label with selected size
   const labelData=prevEl._labelData;
   const printHTML=labelData?buildLabelHTML(labelData,sizeKey):prevEl.innerHTML;
 
@@ -1813,21 +1814,17 @@ function doPrint(){
     </div>`;
   }
 
-  const sizeKey=document.getElementById("_printSize")?.value||"58x40";
   const szMap={"57x40":"57mm 40mm","58x40":"58mm 40mm","62x29":"62mm 29mm",
     "62x100":"62mm 100mm","80x50":"80mm 50mm","100x150":"100mm 150mm",
     "A6":"A6","A5":"A5","letter":"letter","auto":"auto"};
   const pageSize=szMap[sizeKey]||"auto";
-  // Re-build label HTML with the selected size
-  const currentData=document.getElementById("labelPreview").dataset.clientId;
-  const labelHtml=document.getElementById("labelPreview").innerHTML;
+
   const content=`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
       html,body{width:100%;height:100%;background:#fff;}
-      body{font-family:'Inter',sans-serif;display:flex;flex-direction:column;
-        align-items:flex-start;justify-content:flex-start;}
+      body{font-family:'Inter',sans-serif;}
       .lbl-copy{width:100%;}
       @page{margin:1mm;size:${pageSize};}
       @media print{
