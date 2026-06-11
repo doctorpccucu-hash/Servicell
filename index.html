@@ -554,16 +554,19 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
       <label style="font-size:0.8rem;color:var(--muted);white-space:nowrap">Tamaño:</label>
-      <select id="_printSize" style="flex:1;background:var(--surf);border:1px solid var(--bdr);
+      <select id="_printSize" onchange="previewLabelSize()" style="flex:1;background:var(--surf);border:1px solid var(--bdr);
         border-radius:8px;padding:8px 12px;color:var(--txt);font-size:0.9rem;outline:none;
         -webkit-appearance:none;appearance:none">
-        <option value="auto">Auto (tamaño real)</option>
-        <option value="62mm 100mm">Etiqueta 62×100mm</option>
-        <option value="62mm 29mm">Etiqueta 62×29mm</option>
-        <option value="100mm 150mm">Etiqueta 100×150mm</option>
-        <option value="A6">Hoja A6 (105×148mm)</option>
-        <option value="A5">Hoja A5 (148×210mm)</option>
-        <option value="letter">Carta (216×279mm)</option>
+        <option value="58x40">🖨 Térmica 58×40mm (más común)</option>
+        <option value="57x40">🖨 Térmica 57×40mm</option>
+        <option value="62x29">🖨 Térmica 62×29mm (pequeña)</option>
+        <option value="62x100">🖨 Térmica 62×100mm</option>
+        <option value="80x50">🖨 Térmica 80×50mm</option>
+        <option value="100x150">🖨 Etiqueta 100×150mm</option>
+        <option value="A6">📄 A6 — 105×148mm</option>
+        <option value="A5">📄 A5 — 148×210mm</option>
+        <option value="letter">📄 Carta</option>
+        <option value="auto">🔲 Auto</option>
       </select>
     </div>
     <button class="btn1" onclick="doPrint()" style="margin-bottom:9px">
@@ -1665,65 +1668,94 @@ function getLabelData(){
   return {ref,name,phone,brand,model,price,notes,types,shopN,shopT,shopP,logo,date:fecha(),pickupDeadline,evidences:[...photos].slice(0,4)};
 }
 
-function buildLabelHTML(d){
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
-    `REF:${d.ref}|${d.name}|${d.brand} ${d.model}|${d.types.join(",")}|$${d.price}`
+// Tamaños predefinidos en mm → configuración de etiqueta
+const LABEL_SIZES = {
+  "57x40":   {w:57,  h:40,  fs:0.55, ref:1.4, qr:50,  pad:4},
+  "58x40":   {w:58,  h:40,  fs:0.55, ref:1.4, qr:50,  pad:4},
+  "62x29":   {w:62,  h:29,  fs:0.50, ref:1.2, qr:44,  pad:3},
+  "62x100":  {w:62,  h:100, fs:0.65, ref:1.8, qr:70,  pad:5},
+  "80x50":   {w:80,  h:50,  fs:0.65, ref:1.6, qr:60,  pad:5},
+  "100x150": {w:100, h:150, fs:0.78, ref:2.2, qr:90,  pad:8},
+  "A6":      {w:105, h:148, fs:0.80, ref:2.2, qr:90,  pad:10},
+  "A5":      {w:148, h:210, fs:0.88, ref:2.4, qr:100, pad:12},
+  "letter":  {w:216, h:279, fs:0.90, ref:2.6, qr:110, pad:14},
+  "auto":    {w:null,h:null,fs:0.78, ref:2.0, qr:90,  pad:10},
+};
+
+function buildLabelHTML(d, sizeKey){
+  sizeKey = sizeKey || document.getElementById("_printSize")?.value || "auto";
+  const sz = LABEL_SIZES[sizeKey] || LABEL_SIZES["auto"];
+  const wStyle = sz.w ? `width:${sz.w}mm;` : "width:100%;max-width:320px;";
+  const fs  = sz.fs;   // base font-size em multiplier
+  const ref = sz.ref;  // ref number font size rem
+  const qr  = sz.qr;  // QR size px
+  const pad = sz.pad;  // padding px
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qr*2}x${qr*2}&data=${encodeURIComponent(
+    `REF:${d.ref}|${d.name}|${d.brand} ${d.model}|${d.types.join(",")}|L${d.price}`
   )}`;
   const pickupLine=d.pickupDeadline>0
-    ?`<div style="margin-top:8px;padding:6px 8px;background:#fff3cd;border:1px solid #f0a500;
-        border-radius:5px;font-size:0.68rem;color:#7a4f00;font-weight:600">
-        ⏳ Retirar antes del: <strong>${new Date(d.pickupDeadline).toLocaleDateString("es-MX")}</strong><br>
-        <span style="font-weight:400">Pasado este plazo el equipo será desarmado para recuperar repuestos, costos, trabajo y tiempo invertido.</span>
+    ?`<div style="margin-top:${pad/2}px;padding:${pad/2}px ${pad}px;background:#fff3cd;
+        border:1px solid #f0a500;border-radius:4px;
+        font-size:${fs*0.82}rem;color:#7a4f00;font-weight:600">
+        ⏳ Retirar antes: <strong>${new Date(d.pickupDeadline).toLocaleDateString("es-MX")}</strong><br>
+        <span style="font-weight:400;font-size:${fs*0.76}rem">Pasado este plazo el equipo será desarmado para recuperar repuestos, costos, trabajo y tiempo invertido.</span>
       </div>`:""
+
   return `
-  <div style="width:100%;max-width:320px;margin:0 auto;font-family:'Inter',sans-serif;
-    background:#fff;color:#111;border:2px solid #000;border-radius:8px;padding:14px;
-    box-shadow:0 2px 8px rgba(0,0,0,0.15)">
-    <!-- Header taller: logo + nombre negocio + propietario -->
-    <div style="display:flex;align-items:center;gap:10px;border-bottom:1.5px solid #000;
-      padding-bottom:8px;margin-bottom:10px">
-      ${d.logo?`<img src="${d.logo}" style="width:44px;height:44px;object-fit:cover;
-        border-radius:6px;flex-shrink:0;border:1px solid #ddd" alt="logo">`:""}
+  <div style="${wStyle}margin:0 auto;font-family:'Inter',sans-serif;
+    background:#fff;color:#111;border:1.5px solid #000;
+    padding:${pad}px;box-sizing:border-box;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:${pad/2}px;border-bottom:1px solid #000;
+      padding-bottom:${pad/2}px;margin-bottom:${pad/2}px">
+      ${d.logo?`<img src="${d.logo}" style="width:${pad*3}px;height:${pad*3}px;object-fit:cover;
+        border-radius:3px;flex-shrink:0;border:1px solid #ddd" alt="logo">`:""}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:900;font-size:1.05rem;letter-spacing:0.05em;line-height:1">
-          ${d.shopT||"SERVICELL"}
-        </div>
-        ${d.shopN&&d.shopN!==d.shopT?`<div style="font-size:0.72rem;color:#555;margin-top:1px">${d.shopN}</div>`:""}
-        ${d.shopP?`<div style="font-size:0.7rem;color:#666">${d.shopP}</div>`:""}
+        <div style="font-weight:900;font-size:${fs*1.1}rem;letter-spacing:0.04em;line-height:1">
+          ${d.shopT||"SERVICELL"}</div>
+        ${d.shopN&&d.shopN!==d.shopT?`<div style="font-size:${fs*0.78}rem;color:#555">${d.shopN}</div>`:""}
+        ${d.shopP?`<div style="font-size:${fs*0.76}rem;color:#666">${d.shopP}</div>`:""}
       </div>
     </div>
-    <!-- REF grande -->
-    <div style="text-align:center;margin-bottom:10px">
-      <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:#666">N° de Referencia</div>
-      <div style="font-size:2rem;font-weight:900;letter-spacing:0.15em;color:#000;line-height:1">${d.ref}</div>
+    <!-- REF -->
+    <div style="text-align:center;margin-bottom:${pad/2}px">
+      <div style="font-size:${fs*0.62}rem;text-transform:uppercase;letter-spacing:0.1em;color:#666">N° Referencia</div>
+      <div style="font-size:${ref}rem;font-weight:900;letter-spacing:0.12em;color:#000;line-height:1">${d.ref}</div>
     </div>
     <!-- Info + QR -->
-    <div style="display:flex;gap:10px;align-items:flex-start">
+    <div style="display:flex;gap:${pad/2}px;align-items:flex-start">
       <div style="flex:1;min-width:0">
-        ${d.name?`<div style="font-weight:700;font-size:0.9rem;margin-bottom:2px">${d.name}</div>`:""}
-        ${d.phone?`<div style="font-size:0.75rem;color:#555;margin-bottom:4px">📞 ${d.phone}</div>`:""}
-        ${(d.brand||d.model)?`<div style="font-size:0.78rem;font-weight:600;margin-bottom:3px">📱 ${[d.brand,d.model].filter(Boolean).join(" ")}</div>`:""}
-        ${d.types.length?`<div style="font-size:0.72rem;margin-bottom:3px">🔧 ${d.types.join(" · ")}</div>`:""}
-        ${d.price?`<div style="font-size:0.95rem;font-weight:800;color:#000;margin-top:4px">$ ${parseFloat(d.price).toFixed(2)}</div>`:""}
-        ${d.notes?`<div style="font-size:0.68rem;color:#666;margin-top:4px;font-style:italic">${d.notes.substring(0,60)}${d.notes.length>60?"…":""}</div>`:""}
+        ${d.name?`<div style="font-weight:700;font-size:${fs*0.92}rem;margin-bottom:2px">${d.name}</div>`:""}
+        ${d.phone?`<div style="font-size:${fs*0.76}rem;color:#555;margin-bottom:2px">📞 ${d.phone}</div>`:""}
+        ${(d.brand||d.model)?`<div style="font-size:${fs*0.80}rem;font-weight:600;margin-bottom:2px">📱 ${[d.brand,d.model].filter(Boolean).join(" ")}</div>`:""}
+        ${d.types.length?`<div style="font-size:${fs*0.74}rem;margin-bottom:2px">🔧 ${d.types.join(" · ")}</div>`:""}
+        ${d.price?`<div style="font-size:${fs*0.96}rem;font-weight:800;color:#000;margin-top:2px">L ${parseFloat(d.price).toFixed(2)}</div>`:""}
+        ${d.notes?`<div style="font-size:${fs*0.70}rem;color:#666;margin-top:2px;font-style:italic">${d.notes.substring(0,55)}${d.notes.length>55?"…":""}</div>`:""}
       </div>
-      <!-- QR -->
       <div style="flex-shrink:0;text-align:center">
-        <img src="${qrUrl}" width="90" height="90" style="border:1px solid #ddd;border-radius:4px;display:block">
-        <div style="font-size:0.58rem;color:#888;margin-top:2px">Escanear</div>
+        <img src="${qrUrl}" width="${qr}" height="${qr}" style="border:1px solid #ddd;display:block">
+        <div style="font-size:${fs*0.60}rem;color:#888;margin-top:1px">Escanear</div>
       </div>
     </div>
     ${pickupLine}
-    <!-- Footer fecha -->
-    <div style="border-top:1px solid #ccc;margin-top:10px;padding-top:6px;
-      font-size:0.65rem;color:#888;text-align:right">${d.date}</div>
+    <div style="border-top:1px solid #ccc;margin-top:${pad/2}px;padding-top:${pad/4}px;
+      font-size:${fs*0.65}rem;color:#888;text-align:right">${d.date}</div>
   </div>`;
+}
+
+function previewLabelSize(){
+  const preview=document.getElementById("labelPreview");
+  if(!preview||!preview._labelData)return;
+  preview.innerHTML=buildLabelHTML(preview._labelData);
 }
 
 function printLabel(){
   const d = getLabelData();
   if(!d.name&&!d.ref){ toast("Completa el formulario primero","error"); return; }
-  document.getElementById("labelPreview").innerHTML = buildLabelHTML(d);
+  const prev=document.getElementById("labelPreview");
+  prev._labelData=d;
+  prev.innerHTML=buildLabelHTML(d);
   openM("mLabel");
 }
 
@@ -1750,7 +1782,9 @@ async function printCardLabel(id, autoPrint=false){
       pickupDeadline: c.pickupDeadline||0,
       evidences: Array.isArray(c.evidences)?c.evidences.slice(0,4):[]
     };
-    document.getElementById("labelPreview").innerHTML = buildLabelHTML(d);
+    const prev=document.getElementById("labelPreview");
+    prev._labelData=d;
+    prev.innerHTML=buildLabelHTML(d);
     openM("mLabel");
     // Si se llamó desde saveClient, imprimir automáticamente después de que el modal cargue
     if(autoPrint){
@@ -1761,30 +1795,47 @@ async function printCardLabel(id, autoPrint=false){
 }
 
 function doPrint(){
-  const preview=document.getElementById("labelPreview").innerHTML;
-  if(!preview||preview.trim()===""){toast("No hay etiqueta para imprimir","error");return;}
+  const prevEl=document.getElementById("labelPreview");
+  if(!prevEl||!prevEl.innerHTML||prevEl.innerHTML.trim()===""){toast("No hay etiqueta para imprimir","error");return;}
 
   const copies=parseInt(document.getElementById("_printCopies")?.value||"2");
+  const sizeKey=document.getElementById("_printSize")?.value||"58x40";
 
-  // Generar N copias del contenido con salto de página entre ellas
+  // Rebuild label with selected size for printing
+  const labelData=prevEl._labelData;
+  const printHTML=labelData?buildLabelHTML(labelData,sizeKey):prevEl.innerHTML;
+
   let body="";
   for(let i=0;i<copies;i++){
     body+=`<div class="lbl-copy"${i<copies-1?' style="page-break-after:always"':""}>
-      ${preview}
+      ${printHTML}
     </div>`;
   }
 
-  const pageSize=document.getElementById("_printSize")?.value||"auto";
+  const sizeKey=document.getElementById("_printSize")?.value||"58x40";
+  const szMap={"57x40":"57mm 40mm","58x40":"58mm 40mm","62x29":"62mm 29mm",
+    "62x100":"62mm 100mm","80x50":"80mm 50mm","100x150":"100mm 150mm",
+    "A6":"A6","A5":"A5","letter":"letter","auto":"auto"};
+  const pageSize=szMap[sizeKey]||"auto";
+  // Re-build label HTML with the selected size
+  const currentData=document.getElementById("labelPreview").dataset.clientId;
+  const labelHtml=document.getElementById("labelPreview").innerHTML;
   const content=`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <style>
       *{margin:0;padding:0;box-sizing:border-box;}
-      body{background:#fff;font-family:'Inter',sans-serif;}
-      .lbl-copy{padding:6px;}
-      @page{margin:2mm;size:${pageSize};}
-      @media print{.lbl-copy{page-break-after:always;}}
-      .lbl-copy:last-child{page-break-after:avoid!important;}
+      html,body{width:100%;height:100%;background:#fff;}
+      body{font-family:'Inter',sans-serif;display:flex;flex-direction:column;
+        align-items:flex-start;justify-content:flex-start;}
+      .lbl-copy{width:100%;}
+      @page{margin:1mm;size:${pageSize};}
+      @media print{
+        .lbl-copy{page-break-after:always;}
+        .lbl-copy:last-child{page-break-after:avoid!important;}
+        img{max-width:100%!important;}
+      }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   </head><body>
     ${body}
     <script>window.onload=function(){window.print();}<\/script>
